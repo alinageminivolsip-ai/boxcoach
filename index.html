@@ -792,19 +792,12 @@ if (
       timerState.isPrep=false; timerState.remaining=profile.roundTime; timerState.warnFired=false;
       if (settings.gong) synthSound('gong');
 
-setTimeout(() => {
-  playRandomSupportSound();
-}, 1200);
 
 scheduleAutoSound();
 schedulePeriodic();
     } else if (timerState.isRest) {
       timerState.isRest=false; timerState.remaining=profile.roundTime; timerState.warnFired=false;
      if (settings.gong) synthSound('gong');
-
-setTimeout(() => {
-  playRandomSupportSound();
-}, 1200);
 
 scheduleAutoSound();
 schedulePeriodic();
@@ -884,9 +877,6 @@ function timerStartStop() {
 
       if (settings.gong) synthSound('gong');
 
-      setTimeout(() => {
-        playRandomSupportSound();
-      }, 1200);
 
       scheduleAutoSound();
       schedulePeriodic();
@@ -905,6 +895,8 @@ function timerStartStop() {
   } else if (!timerState.paused) {
     timerState.paused = true;
     stopAllSounds();
+clearAutoSound();
+clearPeriodic();
     btn.textContent = '▶ ПРОДОЛЖИТЬ';
     btn.className = 'btn-main btn-start';
 
@@ -913,6 +905,8 @@ function timerStartStop() {
 
   } else {
     timerState.paused = false;
+    scheduleAutoSound();
+schedulePeriodic();
     btn.textContent = '⏸ ПАУЗА';
     btn.className = 'btn-main btn-pause';
 
@@ -921,6 +915,9 @@ function timerStartStop() {
   }
 }
 function timerReset() {
+  stopAllSounds();
+clearAutoSound();
+clearPeriodic();
   stopAllSounds();
   clearInterval(timerState.interval); timerState.interval=null;
   clearAutoSound(); clearPeriodic();
@@ -955,20 +952,27 @@ function timerReset() {
   else synthSound(pick.id);
 }
 function scheduleAutoSound() {
-  clearAutoSound(); if (!settings.auto) return;
-  const cheerSounds=Array.from(activeSounds).filter(s=>s.startsWith('cheer'));
-const recs=loadRecordings().filter(r => activeRecordSounds.has(r.id));
-const mp3s=loadMp3s().filter(m => activeMp3Sounds.has(m.id));
-const all=[...cheerSounds,...recs.map(r=>'rec:'+r.id),...mp3s.map(m=>'mp3:'+m.id)];
-  if (!all.length) return;
-  const delay=15000+Math.random()*(profile.roundTime*500);
-  timerState.autoSoundTimer=setTimeout(()=>{
-    if (!timerState.running||timerState.paused||timerState.isRest||timerState.isPrep) return;
-playRandomSupportSound();
-scheduleAutoSound();
-  }, delay);
+  clearAutoSound();
+
+  if (!settings.auto) return;
+
+  timerState.autoSoundTimer = setInterval(() => {
+    if (
+      !timerState.running ||
+      timerState.paused ||
+      timerState.isRest ||
+      timerState.isPrep
+    ) return;
+
+    playRandomSupportSound();
+  }, 20000);
 }
-function clearAutoSound() { if(timerState.autoSoundTimer){clearTimeout(timerState.autoSoundTimer);timerState.autoSoundTimer=null;} }
+function clearAutoSound() {
+  if (timerState.autoSoundTimer) {
+    clearInterval(timerState.autoSoundTimer);
+    timerState.autoSoundTimer = null;
+  }
+}
 function schedulePeriodic() {
   clearPeriodic(); if (profile.periodSec<=0) return;
   timerState.periodTimer=setInterval(()=>{ if (!timerState.paused&&!timerState.isRest&&!timerState.isPrep) synthSound('whistle'); },profile.periodSec*1000);
