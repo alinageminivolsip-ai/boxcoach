@@ -707,11 +707,23 @@ function timerTick() {
     if (timerState.isPrep) {
       timerState.isPrep=false; timerState.remaining=profile.roundTime; timerState.warnFired=false;
       if (settings.gong) synthSound('gong');
-      scheduleAutoSound(); schedulePeriodic();
+
+setTimeout(() => {
+  playRandomSupportSound();
+}, 1200);
+
+scheduleAutoSound();
+schedulePeriodic();
     } else if (timerState.isRest) {
       timerState.isRest=false; timerState.remaining=profile.roundTime; timerState.warnFired=false;
-      if (settings.gong) synthSound('gong');
-      scheduleAutoSound(); schedulePeriodic();
+     if (settings.gong) synthSound('gong');
+
+setTimeout(() => {
+  playRandomSupportSound();
+}, 1200);
+
+scheduleAutoSound();
+schedulePeriodic();
     } else {
       if (settings.gong) synthSound('rest');
       clearAutoSound(); clearPeriodic();
@@ -740,9 +752,14 @@ function timerStartStop() {
       timerState.isPrep=true; timerState.isRest=false; timerState.remaining=profile.prepTime;
     } else {
       timerState.isPrep=false; timerState.isRest=false; timerState.remaining=profile.roundTime;
-      if (settings.gong) synthSound('gong');
-      scheduleAutoSound(); schedulePeriodic();
-    }
+     if (settings.gong) synthSound('gong');
+
+setTimeout(() => {
+  playRandomSupportSound();
+}, 1200);
+
+scheduleAutoSound();
+schedulePeriodic();
     timerState.interval=setInterval(timerTick,1000);
     btn.textContent='⏸ ПАУЗА'; btn.className='btn-main btn-pause';
     document.getElementById('header-badge').textContent='⬤ БОЙ';
@@ -771,6 +788,27 @@ function timerReset() {
   renderTimer();
 }
 
+  function playRandomSupportSound() {
+  if (!settings.auto) return;
+
+  const cheerSounds = Array.from(activeSounds).filter(s => s.startsWith('cheer'));
+  const recs = loadRecordings();
+  const mp3s = loadMp3s().filter(m => activeMp3Sounds.has(m.id));
+
+  const all = [
+    ...cheerSounds,
+    ...recs.map(r => 'rec:' + r.id),
+    ...mp3s.map(m => 'mp3:' + m.id)
+  ];
+
+  if (!all.length) return;
+
+  const pick = all[Math.floor(Math.random() * all.length)];
+
+  if (pick.startsWith('rec:')) playRecording(pick.replace('rec:', ''));
+  else if (pick.startsWith('mp3:')) playMp3(pick.replace('mp3:', ''));
+  else synthSound(pick);
+}
 function scheduleAutoSound() {
   clearAutoSound(); if (!settings.auto) return;
   const cheerSounds=Array.from(activeSounds).filter(s=>s.startsWith('cheer'));
