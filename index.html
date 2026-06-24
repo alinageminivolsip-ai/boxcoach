@@ -50,10 +50,10 @@ body {
 /* NAV */
 .nav {
   display:flex;
-  background:rgba(26,26,46,0.96);
+  background:rgba(26,26,46,0.98);
   backdrop-filter:blur(18px);
   border-top:1px solid var(--border);
-  padding:8px 0 max(10px,env(safe-area-inset-bottom));
+  padding:8px 0 max(12px,env(safe-area-inset-bottom));
   flex-shrink:0;
   z-index:100;
 }
@@ -85,7 +85,7 @@ body {
   -webkit-overflow-scrolling:touch;
   padding:16px;
   padding-top:max(16px,env(safe-area-inset-top));
-  padding-bottom:14px;
+  padding-bottom:calc(90px + env(safe-area-inset-bottom));
 }
 .screen.active { display:flex; flex-direction:column; gap:14px; }
 
@@ -389,11 +389,6 @@ input.styled:focus { border-color:var(--accent); }
   padding-bottom:18px;
 }
 
-@supports (-webkit-touch-callout:none) {
-  #app {
-    height:100svh;
-  }
-}
 </style>
 </head>
 <body>
@@ -656,7 +651,6 @@ input.styled:focus { border-color:var(--accent); }
   </div>
   <button class="toggle on" id="toggle-countdown" onclick="toggleSetting('countdown')"></button>
 </div>
-          <button class="toggle on" id="toggle-auto" onclick="toggleSetting('auto')"></button>
         </div>
         <div class="setting-row">
           <div class="grow"><div class="setting-label">Не гасить экран</div></div>
