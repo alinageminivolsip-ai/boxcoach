@@ -774,8 +774,9 @@ function timerReset() {
 function scheduleAutoSound() {
   clearAutoSound(); if (!settings.auto) return;
   const cheerSounds=Array.from(activeSounds).filter(s=>s.startsWith('cheer'));
-  const recs=loadRecordings(); const mp3s=loadMp3s();
-  const all=[...cheerSounds,...recs.map(r=>'rec:'+r.id),...mp3s.map(m=>'mp3:'+m.id)];
+const recs=loadRecordings();
+const mp3s=loadMp3s().filter(m => activeMp3Sounds.has(m.id));
+const all=[...cheerSounds,...recs.map(r=>'rec:'+r.id),...mp3s.map(m=>'mp3:'+m.id)];
   if (!all.length) return;
   const delay=15000+Math.random()*(profile.roundTime*500);
   timerState.autoSoundTimer=setTimeout(()=>{
@@ -911,7 +912,8 @@ function renderSoundsScreen() {
 
 function updateFightSounds() {
   const list=document.getElementById('fight-sounds-list');
-  const recs=loadRecordings(); const mp3s=loadMp3s();
+  const recs=loadRecordings();
+const mp3s=loadMp3s().filter(m => activeMp3Sounds.has(m.id));
   const activeCheer=BUILTIN_SOUNDS.filter(s=>activeSounds.has(s.id)&&s.id.startsWith('cheer'));
   const items=[...activeCheer.map(s=>s.icon+' '+s.name),...recs.map(r=>'🎙 '+r.name),...mp3s.map(m=>'🎵 '+m.name)];
   list.innerHTML=items.length
@@ -995,6 +997,30 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 function loadMp3s(){try{return JSON.parse(localStorage.getItem('boxcoach_mp3s')||'[]');}catch{return[];}}
 function saveMp3s(list){try{localStorage.setItem('boxcoach_mp3s',JSON.stringify(list));}catch(e){showToast('Ошибка: недостаточно места в памяти браузера');}}
+  let currentPreviewAudio = null;
+let currentPreviewId = null;
+
+let activeMp3Sounds = new Set(
+  JSON.parse(localStorage.getItem('boxcoach_active_mp3s') || '[]')
+);
+
+function saveActiveMp3Sounds() {
+  localStorage.setItem('boxcoach_active_mp3s', JSON.stringify([...activeMp3Sounds]));
+}
+
+function toggleMp3Support(id) {
+  if (activeMp3Sounds.has(id)) {
+    activeMp3Sounds.delete(id);
+    showToast('Убрано из поддержки');
+  } else {
+    activeMp3Sounds.add(id);
+    showToast('Добавлено в поддержку');
+  }
+
+  saveActiveMp3Sounds();
+  renderMp3List();
+  updateFightSounds();
+}
 
 function fmtSize(bytes){if(bytes<1024)return bytes+'б';if(bytes<1024*1024)return Math.round(bytes/1024)+'КБ';return (bytes/1024/1024).toFixed(1)+'МБ';}
 
@@ -1046,22 +1072,77 @@ function readFileAsDataUrl(file) {
 function renderMp3List() {
   const list=document.getElementById('mp3-list');
   const mp3s=loadMp3s();
-  if(!mp3s.length){list.innerHTML='<div class="text-sm" style="color:var(--text3);text-align:center;padding:8px 0;">Файлов пока нет</div>';return;}
-  list.innerHTML=mp3s.map(m=>`
+
+  if(!mp3s.length){
+    list.innerHTML='<div class="text-sm" style="color:var(--text3);text-align:center;padding:8px 0;">Файлов пока нет</div>';
+    return;
+  }
+
+  list.innerHTML=mp3s.map(m=>{
+    const active = activeMp3Sounds.has(m.id);
+    const playing = currentPreviewId === m.id && currentPreviewAudio && !currentPreviewAudio.paused;
+
+    return `
     <div class="rec-item">
       <div style="font-size:20px;flex-shrink:0;">🎵</div>
+
       <div class="rec-info">
         <div class="rec-name">${escHtml(m.name)}</div>
         <div class="rec-meta">${m.date} · <span class="size-badge">${fmtSize(m.size)}</span></div>
       </div>
+
       <div class="rec-actions">
-        <button class="icon-btn play-btn" onclick="playMp3('${m.id}')">▶</button>
+        <button class="icon-btn play-btn" onclick="toggleMp3Preview('${m.id}')">${playing ? '⏸' : '▶'}</button>
+        <button class="icon-btn" onclick="toggleMp3Support('${m.id}')" style="${active ? 'color:var(--gold);border-color:rgba(255,209,102,0.5);' : ''}">
+          ${active ? '✓' : '＋'}
+        </button>
         <button class="icon-btn del-btn" onclick="deleteMp3('${m.id}')">✕</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
-function playMp3(id){const m=loadMp3s().find(m=>m.id===id);if(!m)return;const a=new Audio(m.dataUrl);a.volume=settings.volCheer;a.play().catch(()=>showToast('Ошибка воспроизведения'));}
+function toggleMp3Preview(id) {
+  const m = loadMp3s().find(m => m.id === id);
+  if (!m) return;
+
+  if (currentPreviewId === id && currentPreviewAudio) {
+    if (currentPreviewAudio.paused) {
+      currentPreviewAudio.play().catch(()=>showToast('Ошибка воспроизведения'));
+    } else {
+      currentPreviewAudio.pause();
+    }
+    renderMp3List();
+    return;
+  }
+
+  if (currentPreviewAudio) {
+    currentPreviewAudio.pause();
+    currentPreviewAudio.currentTime = 0;
+  }
+
+  currentPreviewAudio = new Audio(m.dataUrl);
+  currentPreviewId = id;
+  currentPreviewAudio.volume = settings.volCheer;
+
+  currentPreviewAudio.onended = () => {
+    currentPreviewId = null;
+    currentPreviewAudio = null;
+    renderMp3List();
+  };
+
+  currentPreviewAudio.play().catch(()=>showToast('Ошибка воспроизведения'));
+  renderMp3List();
+}
+
+function playMp3(id) {
+  const m = loadMp3s().find(m => m.id === id);
+  if (!m) return;
+
+  const a = new Audio(m.dataUrl);
+  a.volume = settings.volCheer;
+  a.play().catch(()=>{});
+}
 function deleteMp3(id){saveMp3s(loadMp3s().filter(m=>m.id!==id));renderMp3List();updateFightSounds();showToast('Файл удалён');}
 
 // Drag & drop
