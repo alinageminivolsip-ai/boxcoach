@@ -1071,18 +1071,17 @@ function renderRecordingsList() {
 
   list.innerHTML = recs.map(r => {
     const active = activeRecordSounds.has(r.id);
+    const playing = currentRecordId === r.id && currentRecordAudio && !currentRecordAudio.paused;
 
     return `
       <div class="rec-item">
         <div style="font-size:20px;flex-shrink:0;">🎙</div>
-
         <div class="rec-info">
           <div class="rec-name">${escHtml(r.name)}</div>
           <div class="rec-meta">${r.date} · ${fmtTime(r.dur || 0)}</div>
         </div>
-
         <div class="rec-actions">
-          <button class="icon-btn play-btn" onclick="playRecording('${r.id}')">▶</button>
+          <button class="icon-btn play-btn" onclick="toggleRecordPreview('${r.id}')">${playing ? '⏸' : '▶'}</button>
           <button class="icon-btn" onclick="toggleRecordSupport('${r.id}')" style="${active ? 'color:var(--gold);border-color:rgba(255,209,102,0.5);' : ''}">
             ${active ? '✓' : '＋'}
           </button>
@@ -1091,7 +1090,59 @@ function renderRecordingsList() {
       </div>`;
   }).join('');
 }
-  function playRecording(id) {
+  function toggleRecordPreview(id) {
+  const r = loadRecordings().find(r => r.id === id);
+  if (!r) return;
+
+  if (currentRecordId === id && currentRecordAudio) {
+    if (currentRecordAudio.paused) {
+      currentRecordAudio.play().catch(() => showToast('Ошибка воспроизведения'));
+    } else {
+      currentRecordAudio.pause();
+    }
+
+    renderRecordingsList();
+    return;
+  }
+
+  if (currentRecordAudio) {
+    currentRecordAudio.pause();
+    currentRecordAudio.currentTime = 0;
+  }
+
+  currentRecordAudio = new Audio(r.dataUrl);
+  currentRecordId = id;
+  currentRecordAudio.volume = settings.volCheer;
+
+  currentRecordAudio.onended = () => {
+    currentRecordId = null;
+    currentRecordAudio = null;
+    renderRecordingsList();
+  };
+
+  currentRecordAudio.play().catch(() => showToast('Ошибка воспроизведения'));
+  renderRecordingsList();
+}
+
+function playRecording(id) {
+  const r = loadRecordings().find(r => r.id === id);
+  if (!r) return;
+
+  if (currentRecordAudio) {
+    currentRecordAudio.pause();
+    currentRecordAudio = null;
+    currentRecordId = null;
+    renderRecordingsList();
+  }
+
+  const a = new Audio(r.dataUrl);
+  a.volume = settings.volCheer;
+  a.currentTime = 0;
+
+  a.play().catch(() => {
+    showToast('Нажмите Старт ещё раз: браузер заблокировал звук');
+  });
+}
   const r = loadRecordings().find(r => r.id === id);
   if (!r) return;
 
@@ -1105,6 +1156,12 @@ function renderRecordingsList() {
 }
 
 function deleteRecording(id) {
+  if (currentRecordId === id && currentRecordAudio) {
+    currentRecordAudio.pause();
+    currentRecordAudio = null;
+    currentRecordId = null;
+  }
+
   activeRecordSounds.delete(id);
   saveActiveRecordSounds();
 
@@ -1120,6 +1177,8 @@ function loadMp3s(){try{return JSON.parse(localStorage.getItem('boxcoach_mp3s')|
 function saveMp3s(list){try{localStorage.setItem('boxcoach_mp3s',JSON.stringify(list));}catch(e){showToast('Ошибка: недостаточно места в памяти браузера');}}
   let currentPreviewAudio = null;
 let currentPreviewId = null;
+  let currentRecordAudio = null;
+let currentRecordId = null;
 
 let activeMp3Sounds = new Set(
   JSON.parse(localStorage.getItem('boxcoach_active_mp3s') || '[]')
