@@ -260,6 +260,39 @@ input.styled:focus { border-color:var(--accent); }
   .gender-btn { padding:11px 8px; }
   .info-chip { padding:10px; }
 }
+  .support-item {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  background:var(--card2);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:10px 12px;
+}
+
+.support-name {
+  flex:1;
+  min-width:0;
+  font-size:13px;
+  color:var(--text2);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.support-remove {
+  width:28px;
+  height:28px;
+  border-radius:8px;
+  border:1px solid rgba(255,107,107,0.35);
+  background:var(--card);
+  color:var(--accent2);
+  font-size:14px;
+  cursor:pointer;
+  flex-shrink:0;
+  -webkit-appearance:none;
+}
 </style>
 </head>
 <body>
@@ -641,6 +674,22 @@ function synthSound(type) {
       [[220,110,2.5,1],[330,165,2,0.5]].forEach(([f,f2,d,v])=>{const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type='sine';o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(f2,t+d);g.gain.setValueAtTime(vol*v,t);g.gain.exponentialRampToValueAtTime(0.001,t+d+0.5);o.start(t);o.stop(t+d+0.6);});
     } else if (type==='whistle') {
       for(let i=0;i<3;i++){const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type='sine';o.frequency.value=1200;g.gain.setValueAtTime(0,t+i*0.25);g.gain.linearRampToValueAtTime(vol,t+i*0.25+0.02);g.gain.setValueAtTime(vol,t+i*0.25+0.15);g.gain.linearRampToValueAtTime(0,t+i*0.25+0.2);o.start(t+i*0.25);o.stop(t+i*0.25+0.21);}
+    } else if (type==='countdown') {
+
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+
+  o.connect(g);
+  g.connect(ctx.destination);
+
+  o.type = 'square';
+  o.frequency.value = 1000;
+
+  g.gain.setValueAtTime(vol * 0.5, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+
+  o.start(t);
+  o.stop(t + 0.12);
     } else if (type==='cheer1') {
       [440,554,660].forEach((f,i)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type='triangle';o.frequency.value=f;g.gain.setValueAtTime(0,t+i*0.12);g.gain.linearRampToValueAtTime(vol*0.7,t+i*0.12+0.05);g.gain.linearRampToValueAtTime(0,t+i*0.12+0.15);o.start(t+i*0.12);o.stop(t+i*0.12+0.16);});
     } else if (type==='cheer2') {
@@ -706,6 +755,14 @@ function timerTick() {
   if (!timerState.isRest && !timerState.isPrep && profile.endSigSec>0 && timerState.remaining===profile.endSigSec && !timerState.warnFired) {
     timerState.warnFired=true; synthSound('whistle');
   }
+  // Отсчет подготовки
+if (
+  timerState.isPrep &&
+  timerState.remaining > 0 &&
+  timerState.remaining <= 5
+) {
+  synthSound('countdown');
+}
   if (timerState.remaining<=0) {
     if (timerState.isPrep) {
       timerState.isPrep=false; timerState.remaining=profile.roundTime; timerState.warnFired=false;
@@ -992,50 +1049,62 @@ function renderSoundsScreen() {
 }
 
 function updateFightSounds() {
-  const list=document.getElementById('fight-sounds-list');
-  const recs=loadRecordings().filter(r => activeRecordSounds.has(r.id));
-const mp3s=loadMp3s().filter(m => activeMp3Sounds.has(m.id));
-  const activeCheer=BUILTIN_SOUNDS.filter(s=>activeSounds.has(s.id)&&s.id.startsWith('cheer'));
-  const items=[...activeCheer.map(s=>s.icon+' '+s.name),...recs.map(r=>'🎙 '+r.name),...mp3s.map(m=>'🎵 '+m.name)];
-  list.innerHTML=items.length
-    ? items.map(i=>`<div class="flex-row text-sm"><span>${i}</span></div>`).join('')
-    : '<div class="text-sm" style="color:var(--text3);text-align:center;padding:8px 0;">Нет активных звуков</div>';
+  const list = document.getElementById('fight-sounds-list');
+
+  const recs = loadRecordings().filter(r => activeRecordSounds.has(r.id));
+  const mp3s = loadMp3s().filter(m => activeMp3Sounds.has(m.id));
+  const activeCheer = BUILTIN_SOUNDS.filter(s => activeSounds.has(s.id) && s.id.startsWith('cheer'));
+
+  const items = [
+    ...activeCheer.map(s => ({
+      type: 'builtin',
+      id: s.id,
+      label: s.icon + ' ' + s.name
+    })),
+    ...recs.map(r => ({
+      type: 'rec',
+      id: r.id,
+      label: '🎙 ' + r.name
+    })),
+    ...mp3s.map(m => ({
+      type: 'mp3',
+      id: m.id,
+      label: '🎵 ' + m.name
+    }))
+  ];
+
+  if (!items.length) {
+    list.innerHTML = '<div class="text-sm" style="color:var(--text3);text-align:center;padding:8px 0;">Нет активных звуков</div>';
+    return;
+  }
+
+  list.innerHTML = items.map(item => `
+    <div class="support-item">
+      <span class="support-name">${escHtml(item.label)}</span>
+      <button class="support-remove" onclick="removeSupportSound('${item.type}','${item.id}')">✕</button>
+    </div>
+  `).join('');
 }
+  function removeSupportSound(type, id) {
+  if (type === 'builtin') {
+    activeSounds.delete(id);
+    renderSoundsScreen();
+  }
 
-// ══════════════════════════════════════════════
-//  VOICE RECORDING
-// ══════════════════════════════════════════════
-let mediaRecorder=null, recordedChunks=[], recordingInterval=null;
-let recordingSeconds=0, currentBlob=null, analyser=null, waveInterval=null;
+  if (type === 'rec') {
+    activeRecordSounds.delete(id);
+    saveActiveRecordSounds();
+    renderRecordingsList();
+  }
 
-const waveform=document.getElementById('waveform');
-for(let i=0;i<20;i++){const b=document.createElement('div');b.className='wave-bar';b.id='wave-'+i;waveform.appendChild(b);}
+  if (type === 'mp3') {
+    activeMp3Sounds.delete(id);
+    saveActiveMp3Sounds();
+    renderMp3List();
+  }
 
-async function toggleRecording() { if(mediaRecorder&&mediaRecorder.state==='recording') stopRecording(); else startRecording(); }
-async function startRecording() {
-  try {
-    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
-    const ctx=getAudio();
-    analyser=ctx.createAnalyser(); analyser.fftSize=64;
-    ctx.createMediaStreamSource(stream).connect(analyser);
-    const mime=getSupportedMime();
-    mediaRecorder=new MediaRecorder(stream,{mimeType:mime});
-    recordedChunks=[];
-    mediaRecorder.ondataavailable=e=>{if(e.data.size>0)recordedChunks.push(e.data);};
-    mediaRecorder.onstop=()=>{
-      currentBlob=new Blob(recordedChunks,{type:getSupportedMime()});
-      stream.getTracks().forEach(t=>t.stop()); stopWave();
-      document.getElementById('rec-status').textContent='Готово — введите название и сохраните';
-      document.getElementById('rec-btn').textContent='🎙';
-      document.getElementById('rec-btn').classList.remove('recording');
-    };
-    mediaRecorder.start(100); recordingSeconds=0;
-    document.getElementById('rec-btn').classList.add('recording');
-    document.getElementById('rec-btn').textContent='⏹';
-    document.getElementById('rec-status').textContent='Идёт запись...';
-    recordingInterval=setInterval(()=>{recordingSeconds++;document.getElementById('rec-timer').textContent=fmtTime(recordingSeconds);},1000);
-    startWave();
-  } catch(e) { showToast('Нет доступа к микрофону'); }
+  updateFightSounds();
+  showToast('Звук убран из поддержки');
 }
 function getSupportedMime(){const t=['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4'];for(const m of t)if(MediaRecorder.isTypeSupported(m))return m;return 'audio/webm';}
 function stopRecording(){clearInterval(recordingInterval);if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();}
