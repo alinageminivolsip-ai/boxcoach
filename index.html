@@ -363,6 +363,7 @@ input.styled:focus { border-color:var(--accent); }
 </div>
 
   <!-- ═══════ SOUNDS SCREEN ═══════ -->
+    </div>
   <div class="screen" id="screen-sounds">
     <div class="header"><h1>Звуки</h1></div>
 
@@ -527,14 +528,25 @@ input.styled:focus { border-color:var(--accent); }
           <div class="grow"><div class="setting-label">Гонг</div></div>
           <button class="toggle on" id="toggle-gong" onclick="toggleSetting('gong')"></button>
         </div>
-        <div class="setting-row">
-          <div class="grow"><div class="setting-label">Автозвуки поддержки</div></div>
-          <div class="setting-row">
+      <div class="setting-row">
+  <div class="grow"><div class="setting-label">Автозвуки поддержки</div></div>
+  <button class="toggle on" id="toggle-auto" onclick="toggleSetting('auto')"></button>
+</div>
+
+<div class="setting-row">
   <div class="grow">
     <div class="setting-label">Служебные сигналы</div>
     <div class="setting-sub">Писк перед концом раунда и отдыха</div>
   </div>
   <button class="toggle on" id="toggle-signals" onclick="toggleSetting('signals')"></button>
+</div>
+
+<div class="setting-row">
+  <div class="grow">
+    <div class="setting-label">Отсчёт подготовки</div>
+    <div class="setting-sub">Короткий звук на 5, 4, 3, 2, 1</div>
+  </div>
+  <button class="toggle on" id="toggle-countdown" onclick="toggleSetting('countdown')"></button>
 </div>
 
 <div class="setting-row">
@@ -696,6 +708,27 @@ let settings = {
   volCheer:0.9,
 supportInterval:20
 };
+  function loadSettings() {
+
+  try {
+
+    const s = JSON.parse(localStorage.getItem('boxcoach_settings') || 'null');
+
+    if (s) Object.assign(settings, s);
+
+  } catch(e) {}
+
+}
+
+function saveSettings() {
+
+  try {
+
+    localStorage.setItem('boxcoach_settings', JSON.stringify(settings));
+
+  } catch(e) {}
+
+}
 let audioCtx = null, wakeLock = null;
 
 function getAudio() {
@@ -1022,13 +1055,24 @@ saveProfile();
 // ══════════════════════════════════════════════
 function changeRounds(d) { profile.rounds=Math.max(1,Math.min(20,profile.rounds+d)); updateProfileDisplays(); saveProfile(); timerReset(); }
 function toggleSetting(key) {
-  if (key==='endsig') profile.endSigEnabled=!profile.endSigEnabled;
-  else if (key==='accel') profile.accel=!profile.accel;
-  else settings[key]=!settings[key];
-  const val=key==='endsig'?profile.endSigEnabled:key==='accel'?profile.accel:settings[key];
-  document.getElementById('toggle-'+key).classList.toggle('on',!!val);
-  if (key==='endsig'||key==='accel') saveProfile();
-  if (key==='wake') { settings.wake?requestWakeLock():releaseWakeLock(); }
+  if (key === 'endsig') profile.endSigEnabled = !profile.endSigEnabled;
+  else if (key === 'accel') profile.accel = !profile.accel;
+  else settings[key] = !settings[key];
+
+  const val = key === 'endsig' ? profile.endSigEnabled : key === 'accel' ? profile.accel : settings[key];
+
+  document.getElementById('toggle-' + key).classList.toggle('on', !!val);
+
+  saveProfile();
+  saveSettings();
+
+  if (key === 'wake') {
+    settings.wake ? requestWakeLock() : releaseWakeLock();
+  }
+
+  if (key === 'auto' && timerState.running && !timerState.paused) {
+    settings.auto ? scheduleAutoSound() : clearAutoSound();
+  }
 }
 function updateVol(key,val) {
   settings['vol'+key.charAt(0).toUpperCase()+key.slice(1)]=parseInt(val)/100;
@@ -1148,26 +1192,20 @@ function updateFightSounds() {
     </div>
   `).join('');
 }
-  function changeSupportInterval(delta) {
+function changeSupportInterval(delta) {
   settings.supportInterval = Math.max(5, Math.min(120, settings.supportInterval + delta));
 
   const el = document.getElementById('support-interval-val');
   if (el) el.textContent = settings.supportInterval + 'с';
+
+  saveSettings();
 
   if (timerState.running && !timerState.paused && !timerState.isRest && !timerState.isPrep) {
     scheduleAutoSound();
   }
 
   showToast('Периодичность: ' + settings.supportInterval + ' сек');
-}function changeSupportInterval(delta) {
-  settings.supportInterval = Math.max(5, Math.min(120, settings.supportInterval + delta));
-
-  const el = document.getElementById('support-interval-val');
-  if (el) el.textContent = settings.supportInterval + 'с';
-
-  if (timerState.running && !timerState.paused && !timerState.isRest && !timerState.isPrep) {
-    scheduleAutoSound();
-  }
+}
 
   showToast('Периодичность: ' + settings.supportInterval + ' сек');
 }
@@ -1199,8 +1237,94 @@ function updateFightSounds() {
   if (type === 'rec') playRecording(id);
   if (type === 'mp3') playMp3(id);
 }
+  let mediaRecorder = null;
+let recordedChunks = [];
+let recordingInterval = null;
+let recordingSeconds = 0;
+let currentBlob = null;
+let analyser = null;
+let waveInterval = null;
+
+const waveform = document.getElementById('waveform');
+if (waveform && !waveform.children.length) {
+  for (let i = 0; i < 20; i++) {
+    const b = document.createElement('div');
+    b.className = 'wave-bar';
+    b.id = 'wave-' + i;
+    waveform.appendChild(b);
+  }
+}
+
+async function toggleRecording() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    stopRecording();
+  } else {
+    await startRecording();
+  }
+}
+
+async function startRecording() {
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showToast('Запись работает только через HTTPS или установленное приложение');
+      return;
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    const ctx = getAudio();
+    if (ctx.state === 'suspended') await ctx.resume();
+
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 64;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+
+    const mime = getSupportedMime();
+    mediaRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    recordedChunks = [];
+    currentBlob = null;
+
+    mediaRecorder.ondataavailable = e => {
+      if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = () => {
+      currentBlob = new Blob(recordedChunks, { type: mime || 'audio/webm' });
+      stream.getTracks().forEach(t => t.stop());
+      stopWave();
+
+      document.getElementById('rec-status').textContent = 'Готово, введите название и сохраните';
+      document.getElementById('rec-btn').textContent = '🎙';
+      document.getElementById('rec-btn').classList.remove('recording');
+    };
+
+    mediaRecorder.start(100);
+    recordingSeconds = 0;
+
+    document.getElementById('rec-btn').classList.add('recording');
+    document.getElementById('rec-btn').textContent = '⏹';
+    document.getElementById('rec-status').textContent = 'Идёт запись...';
+    document.getElementById('rec-timer').textContent = '0:00';
+
+    recordingInterval = setInterval(() => {
+      recordingSeconds++;
+      document.getElementById('rec-timer').textContent = fmtTime(recordingSeconds);
+    }, 1000);
+
+    startWave();
+
+  } catch (e) {
+    showToast('Нет доступа к микрофону');
+  }
+}
 function getSupportedMime(){const t=['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4'];for(const m of t)if(MediaRecorder.isTypeSupported(m))return m;return 'audio/webm';}
-function stopRecording(){clearInterval(recordingInterval);if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();}
+function stopRecording() {
+  clearInterval(recordingInterval);
+
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+}
 function startWave(){waveInterval=setInterval(()=>{if(!analyser)return;const d=new Uint8Array(analyser.frequencyBinCount);analyser.getByteFrequencyData(d);for(let i=0;i<20;i++){const b=document.getElementById('wave-'+i);if(b){const v=(d[i]||0)/255;b.style.height=Math.max(4,v*36)+'px';b.style.opacity=0.4+v*0.6;}}},80);}
 function stopWave(){clearInterval(waveInterval);for(let i=0;i<20;i++){const b=document.getElementById('wave-'+i);if(b){b.style.height='4px';b.style.opacity='0.4';}}}
 
@@ -1603,6 +1727,7 @@ if ('serviceWorker' in navigator) {
 //  INIT
 // ══════════════════════════════════════════════
 loadProfile();
+loadSettings();
 updateProfileDisplays();
 renderTimer();
 updateFightSounds();
