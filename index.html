@@ -342,13 +342,25 @@ input.styled:focus { border-color:var(--accent); }
       <button class="btn-stop" onclick="timerReset()" title="Сброс">■</button>
     </div>
 
-    <div class="card">
-      <div class="card-title">Активные звуки поддержки</div>
-      <div id="fight-sounds-list" class="gap-8">
-        <div class="text-sm" style="color:var(--text3);text-align:center;padding:8px 0;">Настройте звуки во вкладке 🔊</div>
-      </div>
+  <div class="card">
+  <div class="card-title">Активные звуки поддержки</div>
+
+  <div class="setting-row" style="padding:0 0 12px;border-bottom:1px solid var(--border);margin-bottom:12px;">
+    <div class="grow">
+      <div class="setting-label">Периодичность</div>
+      <div class="setting-sub">Как часто включать голос тренера</div>
+    </div>
+    <div class="stepper">
+      <button class="step-btn" onclick="changeSupportInterval(-5)">−</button>
+      <span class="step-val" id="support-interval-val">20с</span>
+      <button class="step-btn" onclick="changeSupportInterval(5)">+</button>
     </div>
   </div>
+
+  <div id="fight-sounds-list" class="gap-8">
+    <div class="text-sm" style="color:var(--text3);text-align:center;padding:8px 0;">Настройте звуки во вкладке 🔊</div>
+  </div>
+</div>
 
   <!-- ═══════ SOUNDS SCREEN ═══════ -->
   <div class="screen" id="screen-sounds">
@@ -655,6 +667,8 @@ function updateProfileDisplays() {
   document.getElementById('chip-rounds').textContent = profile.rounds;
   document.getElementById('chip-round-time').textContent = fmtTime(profile.roundTime);
   document.getElementById('chip-rest-time').textContent = fmtTime(profile.restTime);
+  const intervalEl = document.getElementById('support-interval-val');
+if (intervalEl) intervalEl.textContent = settings.supportInterval + 'с';
 }
 
 // ══════════════════════════════════════════════
@@ -679,7 +693,8 @@ let settings = {
   signals:true,
   countdown:true,
   volGong:0.8,
-  volCheer:0.9
+  volCheer:0.9,
+supportInterval:20
 };
 let audioCtx = null, wakeLock = null;
 
@@ -965,7 +980,7 @@ function scheduleAutoSound() {
     ) return;
 
     playRandomSupportSound();
-  }, 20000);
+  }, settings.supportInterval * 1000);
 }
 function clearAutoSound() {
   if (timerState.autoSoundTimer) {
@@ -1126,9 +1141,35 @@ function updateFightSounds() {
   list.innerHTML = items.map(item => `
     <div class="support-item">
       <span class="support-name">${escHtml(item.label)}</span>
-      <button class="support-remove" onclick="removeSupportSound('${item.type}','${item.id}')">✕</button>
+      <div style="display:flex;gap:6px;">
+  <button class="support-remove" onclick="previewSupportSound('${item.type}','${item.id}')" style="color:var(--teal);border-color:rgba(6,214,160,0.35);">▶</button>
+  <button class="support-remove" onclick="removeSupportSound('${item.type}','${item.id}')">✕</button>
+</div>
     </div>
   `).join('');
+}
+  function changeSupportInterval(delta) {
+  settings.supportInterval = Math.max(5, Math.min(120, settings.supportInterval + delta));
+
+  const el = document.getElementById('support-interval-val');
+  if (el) el.textContent = settings.supportInterval + 'с';
+
+  if (timerState.running && !timerState.paused && !timerState.isRest && !timerState.isPrep) {
+    scheduleAutoSound();
+  }
+
+  showToast('Периодичность: ' + settings.supportInterval + ' сек');
+}function changeSupportInterval(delta) {
+  settings.supportInterval = Math.max(5, Math.min(120, settings.supportInterval + delta));
+
+  const el = document.getElementById('support-interval-val');
+  if (el) el.textContent = settings.supportInterval + 'с';
+
+  if (timerState.running && !timerState.paused && !timerState.isRest && !timerState.isPrep) {
+    scheduleAutoSound();
+  }
+
+  showToast('Периодичность: ' + settings.supportInterval + ' сек');
 }
   function removeSupportSound(type, id) {
   if (type === 'builtin') {
@@ -1150,6 +1191,13 @@ function updateFightSounds() {
 
   updateFightSounds();
   showToast('Звук убран из поддержки');
+}
+  function previewSupportSound(type, id) {
+  stopAllSounds();
+
+  if (type === 'builtin') synthSound(id);
+  if (type === 'rec') playRecording(id);
+  if (type === 'mp3') playMp3(id);
 }
 function getSupportedMime(){const t=['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4'];for(const m of t)if(MediaRecorder.isTypeSupported(m))return m;return 'audio/webm';}
 function stopRecording(){clearInterval(recordingInterval);if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();}
