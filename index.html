@@ -818,18 +818,18 @@ function timerReset() {
   const mp3s = loadMp3s().filter(m => activeMp3Sounds.has(m.id));
 
   const all = [
-    ...cheerSounds,
-    ...recs.map(r => 'rec:' + r.id),
-    ...mp3s.map(m => 'mp3:' + m.id)
+    ...cheerSounds.map(id => ({ type:'builtin', id })),
+    ...recs.map(r => ({ type:'rec', id:r.id })),
+    ...mp3s.map(m => ({ type:'mp3', id:m.id }))
   ];
 
   if (!all.length) return;
 
   const pick = all[Math.floor(Math.random() * all.length)];
 
-  if (pick.startsWith('rec:')) playRecording(pick.replace('rec:', ''));
-  else if (pick.startsWith('mp3:')) playMp3(pick.replace('mp3:', ''));
-  else synthSound(pick);
+  if (pick.type === 'rec') playRecording(pick.id);
+  else if (pick.type === 'mp3') playMp3(pick.id);
+  else synthSound(pick.id);
 }
 function scheduleAutoSound() {
   clearAutoSound(); if (!settings.auto) return;
@@ -841,11 +841,8 @@ const all=[...cheerSounds,...recs.map(r=>'rec:'+r.id),...mp3s.map(m=>'mp3:'+m.id
   const delay=15000+Math.random()*(profile.roundTime*500);
   timerState.autoSoundTimer=setTimeout(()=>{
     if (!timerState.running||timerState.paused||timerState.isRest||timerState.isPrep) return;
-    const pick=all[Math.floor(Math.random()*all.length)];
-    if (pick.startsWith('rec:')) playRecording(pick.replace('rec:',''));
-    else if (pick.startsWith('mp3:')) playMp3(pick.replace('mp3:',''));
-    else synthSound(pick);
-    scheduleAutoSound();
+playRandomSupportSound();
+scheduleAutoSound();
   }, delay);
 }
 function clearAutoSound() { if(timerState.autoSoundTimer){clearTimeout(timerState.autoSoundTimer);timerState.autoSoundTimer=null;} }
@@ -1198,9 +1195,20 @@ function playMp3(id) {
   const m = loadMp3s().find(m => m.id === id);
   if (!m) return;
 
+  if (currentPreviewAudio) {
+    currentPreviewAudio.pause();
+    currentPreviewAudio = null;
+    currentPreviewId = null;
+    renderMp3List();
+  }
+
   const a = new Audio(m.dataUrl);
   a.volume = settings.volCheer;
-  a.play().catch(()=>{});
+  a.currentTime = 0;
+
+  a.play().catch(() => {
+    showToast('Нажмите Старт ещё раз: браузер заблокировал звук');
+  });
 }
 function deleteMp3(id){
   activeMp3Sounds.delete(id);
