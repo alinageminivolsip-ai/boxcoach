@@ -1462,15 +1462,6 @@ function playMp3(id) {
     showToast('Нажмите Старт ещё раз: браузер заблокировал звук');
   });
 }
-
-  const a = new Audio(m.dataUrl);
-  a.volume = settings.volCheer;
-  a.currentTime = 0;
-
-  a.play().catch(() => {
-    showToast('Нажмите Старт ещё раз: браузер заблокировал звук');
-  });
-}
 function deleteMp3(id){
   activeMp3Sounds.delete(id);
   saveActiveMp3Sounds();
