@@ -548,14 +548,6 @@ input.styled:focus { border-color:var(--accent); }
   </div>
   <button class="toggle on" id="toggle-countdown" onclick="toggleSetting('countdown')"></button>
 </div>
-
-<div class="setting-row">
-  <div class="grow">
-    <div class="setting-label">Отсчёт подготовки</div>
-    <div class="setting-sub">Короткий звук на 5, 4, 3, 2, 1</div>
-  </div>
-  <button class="toggle on" id="toggle-countdown" onclick="toggleSetting('countdown')"></button>
-</div>
           <button class="toggle on" id="toggle-auto" onclick="toggleSetting('auto')"></button>
         </div>
         <div class="setting-row">
@@ -1074,9 +1066,10 @@ function toggleSetting(key) {
     settings.auto ? scheduleAutoSound() : clearAutoSound();
   }
 }
-function updateVol(key,val) {
-  settings['vol'+key.charAt(0).toUpperCase()+key.slice(1)]=parseInt(val)/100;
-  document.getElementById('vol-'+key+'-val').textContent=val;
+  function updateVol(key,val) {
+  settings['vol'+key.charAt(0).toUpperCase()+key.slice(1)] = parseInt(val)/100;
+  document.getElementById('vol-'+key+'-val').textContent = val;
+  saveSettings();
 }
 
 // TIME MODAL
@@ -1203,9 +1196,6 @@ function changeSupportInterval(delta) {
   if (timerState.running && !timerState.paused && !timerState.isRest && !timerState.isPrep) {
     scheduleAutoSound();
   }
-
-  showToast('Периодичность: ' + settings.supportInterval + ' сек');
-}
 
   showToast('Периодичность: ' + settings.supportInterval + ' сек');
 }
