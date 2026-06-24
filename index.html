@@ -814,7 +814,7 @@ function timerReset() {
   if (!settings.auto) return;
 
   const cheerSounds = Array.from(activeSounds).filter(s => s.startsWith('cheer'));
-  const recs = loadRecordings();
+  const recs = loadRecordings().filter(r => activeRecordSounds.has(r.id));
   const mp3s = loadMp3s().filter(m => activeMp3Sounds.has(m.id));
 
   const all = [
@@ -834,7 +834,7 @@ function timerReset() {
 function scheduleAutoSound() {
   clearAutoSound(); if (!settings.auto) return;
   const cheerSounds=Array.from(activeSounds).filter(s=>s.startsWith('cheer'));
-const recs=loadRecordings();
+const recs=loadRecordings().filter(r => activeRecordSounds.has(r.id));
 const mp3s=loadMp3s().filter(m => activeMp3Sounds.has(m.id));
 const all=[...cheerSounds,...recs.map(r=>'rec:'+r.id),...mp3s.map(m=>'mp3:'+m.id)];
   if (!all.length) return;
@@ -968,7 +968,7 @@ function renderSoundsScreen() {
 
 function updateFightSounds() {
   const list=document.getElementById('fight-sounds-list');
-  const recs=loadRecordings();
+  const recs=loadRecordings().filter(r => activeRecordSounds.has(r.id));
 const mp3s=loadMp3s().filter(m => activeMp3Sounds.has(m.id));
   const activeCheer=BUILTIN_SOUNDS.filter(s=>activeSounds.has(s.id)&&s.id.startsWith('cheer'));
   const items=[...activeCheer.map(s=>s.icon+' '+s.name),...recs.map(r=>'🎙 '+r.name),...mp3s.map(m=>'🎵 '+m.name)];
@@ -1035,22 +1035,84 @@ function saveRecording() {
 
 function loadRecordings(){try{return JSON.parse(localStorage.getItem('boxcoach_recs')||'[]');}catch{return[];}}
 function saveRecordings(r){try{localStorage.setItem('boxcoach_recs',JSON.stringify(r));}catch(e){showToast('Ошибка: недостаточно места');}}
+  let activeRecordSounds = new Set(
+  JSON.parse(localStorage.getItem('boxcoach_active_recs') || '[]')
+);
 
-function renderRecordingsList() {
-  const list=document.getElementById('recordings-list');
-  const recs=loadRecordings();
-  if(!recs.length){list.innerHTML='<div class="text-sm" style="color:var(--text3);text-align:center;padding:8px 0;">Записей пока нет</div>';return;}
-  list.innerHTML=recs.map(r=>`<div class="rec-item"><div style="font-size:20px;flex-shrink:0;">🎙</div><div class="rec-info"><div class="rec-name">${escHtml(r.name)}</div><div class="rec-meta">${r.date} · ${fmtTime(r.dur||0)}</div></div><div class="rec-actions"><button class="icon-btn play-btn" onclick="playRecording('${r.id}')">▶</button><button class="icon-btn del-btn" onclick="deleteRecording('${r.id}')">✕</button></div></div>`).join('');
+function saveActiveRecordSounds() {
+  localStorage.setItem('boxcoach_active_recs', JSON.stringify([...activeRecordSounds]));
 }
 
-function playRecording(id){const r=loadRecordings().find(r=>r.id===id);if(!r)return;const a=new Audio(r.dataUrl);a.volume=settings.volCheer;a.play().catch(()=>{});}
-function deleteRecording(id){saveRecordings(loadRecordings().filter(r=>r.id!==id));renderRecordingsList();updateFightSounds();showToast('Запись удалена');}
+function toggleRecordSupport(id) {
+  if (activeRecordSounds.has(id)) {
+    activeRecordSounds.delete(id);
+    showToast('Запись убрана из поддержки');
+  } else {
+    activeRecordSounds.add(id);
+    showToast('Запись добавлена в поддержку');
+  }
 
-// ══════════════════════════════════════════════
-//  MP3 UPLOAD
-// ══════════════════════════════════════════════
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+  saveActiveRecordSounds();
+  renderRecordingsList();
+  updateFightSounds();
+}
 
+function renderRecordingsList() {
+  const list = document.getElementById('recordings-list');
+  const recs = loadRecordings();
+
+  if (!recs.length) {
+    list.innerHTML = '<div class="text-sm" style="color:var(--text3);text-align:center;padding:8px 0;">Записей пока нет</div>';
+    return;
+  }
+
+  list.innerHTML = recs.map(r => {
+    const active = activeRecordSounds.has(r.id);
+
+    return `
+      <div class="rec-item">
+        <div style="font-size:20px;flex-shrink:0;">🎙</div>
+
+        <div class="rec-info">
+          <div class="rec-name">${escHtml(r.name)}</div>
+          <div class="rec-meta">${r.date} · ${fmtTime(r.dur || 0)}</div>
+        </div>
+
+        <div class="rec-actions">
+          <button class="icon-btn play-btn" onclick="playRecording('${r.id}')">▶</button>
+          <button class="icon-btn" onclick="toggleRecordSupport('${r.id}')" style="${active ? 'color:var(--gold);border-color:rgba(255,209,102,0.5);' : ''}">
+            ${active ? '✓' : '＋'}
+          </button>
+          <button class="icon-btn del-btn" onclick="deleteRecording('${r.id}')">✕</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+  function playRecording(id) {
+  const r = loadRecordings().find(r => r.id === id);
+  if (!r) return;
+
+  const a = new Audio(r.dataUrl);
+  a.volume = settings.volCheer;
+  a.currentTime = 0;
+
+  a.play().catch(() => {
+    showToast('Нажмите Старт ещё раз: браузер заблокировал звук');
+  });
+}
+
+function deleteRecording(id) {
+  activeRecordSounds.delete(id);
+  saveActiveRecordSounds();
+
+  saveRecordings(loadRecordings().filter(r => r.id !== id));
+  renderRecordingsList();
+  updateFightSounds();
+  showToast('Запись удалена');
+}
+
+/* MP3 UPLOAD */
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 function loadMp3s(){try{return JSON.parse(localStorage.getItem('boxcoach_mp3s')||'[]');}catch{return[];}}
 function saveMp3s(list){try{localStorage.setItem('boxcoach_mp3s',JSON.stringify(list));}catch(e){showToast('Ошибка: недостаточно места в памяти браузера');}}
   let currentPreviewAudio = null;
