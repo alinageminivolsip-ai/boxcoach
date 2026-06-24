@@ -899,7 +899,14 @@ schedulePeriodic();
   } catch(e) {}
 }
 function timerStartStop() {
-  unlockAudioForIOS();
+  function unlockAudioForIOS() {
+  try {
+    const ctx = getAudio();
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+  } catch(e) {}
+}
 
   const btn = document.getElementById('btn-start-stop');
 
@@ -1392,6 +1399,7 @@ function renderRecordingsList() {
   }).join('');
 }
   function toggleRecordPreview(id) {
+    unlockAudioForIOS();
   const r = loadRecordings().find(r => r.id === id);
   if (!r) return;
 
@@ -1632,6 +1640,7 @@ function renderMp3List() {
 }
 
 function toggleMp3Preview(id) {
+  unlockAudioForIOS();
   const m = loadMp3s().find(m => m.id === id);
   if (!m) return;
 
