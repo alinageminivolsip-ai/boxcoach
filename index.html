@@ -517,6 +517,21 @@ input.styled:focus { border-color:var(--accent); }
         </div>
         <div class="setting-row">
           <div class="grow"><div class="setting-label">Автозвуки поддержки</div></div>
+          <div class="setting-row">
+  <div class="grow">
+    <div class="setting-label">Служебные сигналы</div>
+    <div class="setting-sub">Писк перед концом раунда и отдыха</div>
+  </div>
+  <button class="toggle on" id="toggle-signals" onclick="toggleSetting('signals')"></button>
+</div>
+
+<div class="setting-row">
+  <div class="grow">
+    <div class="setting-label">Отсчёт подготовки</div>
+    <div class="setting-sub">Короткий звук на 5, 4, 3, 2, 1</div>
+  </div>
+  <button class="toggle on" id="toggle-countdown" onclick="toggleSetting('countdown')"></button>
+</div>
           <button class="toggle on" id="toggle-auto" onclick="toggleSetting('auto')"></button>
         </div>
         <div class="setting-row">
@@ -632,7 +647,7 @@ function updateProfileDisplays() {
   document.getElementById('disp-endsig').textContent = fmtTimePad(profile.endSigSec);
   document.getElementById('disp-period').textContent = fmtTimePad(profile.periodSec);
   document.getElementById('disp-prep').textContent = fmtTimePad(profile.prepTime);
-  ['endsig','accel','gong','auto','wake'].forEach(k => {
+  ['endsig','accel','gong','auto','wake','signals','countdown'].forEach(k => {
     const el=document.getElementById('toggle-'+k); if(!el) return;
     const val = k==='endsig' ? profile.endSigEnabled : k==='accel' ? profile.accel : settings[k];
     el.classList.toggle('on',!!val);
@@ -657,7 +672,15 @@ const BUILTIN_SOUNDS = [
 ];
 
 let activeSounds = new Set(['gong','cheer1','cheer2']);
-let settings = { gong:true, auto:true, wake:false, volGong:0.8, volCheer:0.9 };
+let settings = {
+  gong:true,
+  auto:true,
+  wake:false,
+  signals:true,
+  countdown:true,
+  volGong:0.8,
+  volCheer:0.9
+};
 let audioCtx = null, wakeLock = null;
 
 function getAudio() {
@@ -751,12 +774,13 @@ function renderTimer() {
 
 function timerTick() {
   if (timerState.paused) return;
-  if (timerState.isRest && profile.endSigEnabled && timerState.remaining===10) synthSound('whistle');
+ if (settings.signals && timerState.isRest && profile.endSigEnabled && timerState.remaining===10) synthSound('whistle');
   if (!timerState.isRest && !timerState.isPrep && profile.endSigSec>0 && timerState.remaining===profile.endSigSec && !timerState.warnFired) {
-    timerState.warnFired=true; synthSound('whistle');
+    timerState.warnFired=true; if (settings.signals) synthSound('whistle');
   }
   // Отсчет подготовки
 if (
+  settings.countdown &&
   timerState.isPrep &&
   timerState.remaining > 0 &&
   timerState.remaining <= 5
@@ -880,6 +904,7 @@ function timerStartStop() {
 
   } else if (!timerState.paused) {
     timerState.paused = true;
+    stopAllSounds();
     btn.textContent = '▶ ПРОДОЛЖИТЬ';
     btn.className = 'btn-main btn-start';
 
@@ -896,6 +921,7 @@ function timerStartStop() {
   }
 }
 function timerReset() {
+  stopAllSounds();
   clearInterval(timerState.interval); timerState.interval=null;
   clearAutoSound(); clearPeriodic();
   Object.assign(timerState, {running:false,paused:false,currentRound:1,isRest:false,isPrep:false,remaining:profile.roundTime,warnFired:false});
@@ -1242,14 +1268,8 @@ function playRecording(id) {
     audioCache.rec[id] = a;
   }
 
-  a.pause();
-  a.currentTime = 0;
-  a.muted = false;
   a.volume = settings.volCheer;
-
-  a.play().catch(() => {
-    showToast('Нажмите Старт ещё раз: браузер заблокировал звук');
-  });
+  playCachedAudio(a);
 }
 function deleteRecording(id) {
   if (currentRecordId === id && currentRecordAudio) {
@@ -1280,6 +1300,47 @@ const audioCache = {
   mp3: {}
 };
 
+  const playingAudios = new Set();
+
+function playCachedAudio(a) {
+  if (!a) return;
+
+  playingAudios.add(a);
+
+  a.pause();
+  a.currentTime = 0;
+  a.muted = false;
+
+  a.onended = () => {
+    playingAudios.delete(a);
+  };
+
+  a.play().catch(() => {
+    playingAudios.delete(a);
+    showToast('Нажмите Старт ещё раз: браузер заблокировал звук');
+  });
+}
+
+function stopAllSounds() {
+  playingAudios.forEach(a => {
+    try {
+      a.pause();
+      a.currentTime = 0;
+    } catch(e) {}
+  });
+
+  playingAudios.clear();
+
+  if (currentPreviewAudio) {
+    currentPreviewAudio.pause();
+    currentPreviewAudio.currentTime = 0;
+  }
+
+  if (currentRecordAudio) {
+    currentRecordAudio.pause();
+    currentRecordAudio.currentTime = 0;
+  }
+}
 function prepareAudioCache() {
   audioCache.rec = {};
   audioCache.mp3 = {};
@@ -1453,14 +1514,8 @@ function playMp3(id) {
     renderMp3List();
   }
 
-  a.pause();
-  a.currentTime = 0;
-  a.muted = false;
   a.volume = settings.volCheer;
-
-  a.play().catch(() => {
-    showToast('Нажмите Старт ещё раз: браузер заблокировал звук');
-  });
+  playCachedAudio(a);
 }
 function deleteMp3(id){
   activeMp3Sounds.delete(id);
