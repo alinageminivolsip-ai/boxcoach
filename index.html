@@ -805,22 +805,37 @@ schedulePeriodic();
 
   function unlockAudioForIOS() {
   try {
-    getAudio().resume();
+    const ctx = getAudio();
+    if (ctx.state === 'suspended') ctx.resume();
 
-    const recs = loadRecordings();
-    const mp3s = loadMp3s();
+    prepareAudioCache();
 
-    [...recs, ...mp3s].forEach(item => {
-      const a = new Audio(item.dataUrl);
+    Object.values(audioCache.rec).forEach(a => {
       a.muted = true;
-      a.volume = 0;
       a.play()
         .then(() => {
           a.pause();
           a.currentTime = 0;
+          a.muted = false;
         })
-        .catch(() => {});
+        .catch(() => {
+          a.muted = false;
+        });
     });
+
+    Object.values(audioCache.mp3).forEach(a => {
+      a.muted = true;
+      a.play()
+        .then(() => {
+          a.pause();
+          a.currentTime = 0;
+          a.muted = false;
+        })
+        .catch(() => {
+          a.muted = false;
+        });
+    });
+
   } catch(e) {}
 }
 function timerStartStop() {
@@ -1219,12 +1234,21 @@ function playRecording(id) {
   const r = loadRecordings().find(r => r.id === id);
   if (!r) return;
 
-  const a = new Audio(r.dataUrl);
-  a.volume = settings.volCheer;
+  let a = audioCache.rec[id];
+
+  if (!a) {
+    a = new Audio(r.dataUrl);
+    a.preload = 'auto';
+    audioCache.rec[id] = a;
+  }
+
+  a.pause();
   a.currentTime = 0;
+  a.muted = false;
+  a.volume = settings.volCheer;
 
   a.play().catch(() => {
-    console.warn('Safari заблокировал голосовую запись');
+    showToast('Нажмите Старт ещё раз: браузер заблокировал звук');
   });
 }
 function deleteRecording(id) {
@@ -1251,7 +1275,30 @@ function saveMp3s(list){try{localStorage.setItem('boxcoach_mp3s',JSON.stringify(
 let currentPreviewId = null;
   let currentRecordAudio = null;
 let currentRecordId = null;
+const audioCache = {
+  rec: {},
+  mp3: {}
+};
 
+function prepareAudioCache() {
+  audioCache.rec = {};
+  audioCache.mp3 = {};
+
+  loadRecordings().forEach(r => {
+    const a = new Audio(r.dataUrl);
+    a.preload = 'auto';
+    a.volume = settings.volCheer;
+    audioCache.rec[r.id] = a;
+  });
+
+  loadMp3s().forEach(m => {
+    const a = new Audio(m.dataUrl);
+    a.preload = 'auto';
+    a.volume = settings.volCheer;
+    audioCache.mp3[m.id] = a;
+  });
+}
+  
 let activeMp3Sounds = new Set(
   JSON.parse(localStorage.getItem('boxcoach_active_mp3s') || '[]')
 );
@@ -1391,12 +1438,30 @@ function playMp3(id) {
   const m = loadMp3s().find(m => m.id === id);
   if (!m) return;
 
+  let a = audioCache.mp3[id];
+
+  if (!a) {
+    a = new Audio(m.dataUrl);
+    a.preload = 'auto';
+    audioCache.mp3[id] = a;
+  }
+
   if (currentPreviewAudio) {
     currentPreviewAudio.pause();
     currentPreviewAudio = null;
     currentPreviewId = null;
     renderMp3List();
   }
+
+  a.pause();
+  a.currentTime = 0;
+  a.muted = false;
+  a.volume = settings.volCheer;
+
+  a.play().catch(() => {
+    showToast('Нажмите Старт ещё раз: браузер заблокировал звук');
+  });
+}
 
   const a = new Audio(m.dataUrl);
   a.volume = settings.volCheer;
