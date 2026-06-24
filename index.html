@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BoxCoach">
+<link rel="manifest" href="manifest.json">
+<title>BoxCoach</title>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+:root {
+  --bg:#0f0f1a; --bg2:#1a1a2e; --bg3:#16213e;
+  --card:#1e1e35; --card2:#252545;
+  --accent:#e63946; --accent2:#ff6b6b;
+  --gold:#ffd166; --teal:#06d6a0; --blue:#4cc9f0;
+  --text:#f8f9fa; --text2:#adb5bd; --text3:#6c757d;
+  --border:rgba(255,255,255,0.08); --border2:rgba(255,255,255,0.15);
+  --radius:12px; --radius-lg:18px;
+}
+html,body { height:100%; width:100%; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:var(--bg); color:var(--text); overflow:hidden; }
+#app { height:100vh; display:flex; flex-direction:column; max-width:480px; margin:0 auto; position:relative; overflow:hidden; }
+
+/* NAV */
+.nav { display:flex; background:var(--bg2); border-top:1px solid var(--border); padding:8px 0 max(8px,env(safe-area-inset-bottom)); order:99; flex-shrink:0; z-index:10; }
+.nav-btn { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 4px; border:none; background:none; color:var(--text3); font-size:10px; cursor:pointer; transition:color 0.2s; -webkit-appearance:none; }
+.nav-btn svg { width:22px; height:22px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.nav-btn.active { color:var(--accent2); }
+
+/* SCREENS */
+.screen { display:none; flex:1; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; padding:16px; padding-top:max(16px,env(safe-area-inset-top)); }
+.screen.active { display:flex; flex-direction:column; gap:14px; }
+
+/* HEADER */
+.header { display:flex; align-items:center; justify-content:space-between; padding-bottom:4px; }
+.header h1 { font-size:22px; font-weight:700; letter-spacing:-0.5px; }
+.header h1 span { color:var(--accent); }
+.badge { background:var(--accent); color:white; font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; }
+
+/* CARDS */
+.card { background:var(--card); border-radius:var(--radius-lg); border:1px solid var(--border); padding:16px; }
+.card-title { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:1px; color:var(--text3); margin-bottom:12px; }
+
+/* CATEGORY */
+.category-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.cat-btn { padding:14px 10px; border-radius:var(--radius); border:1.5px solid var(--border2); background:var(--card2); color:var(--text2); font-size:13px; font-weight:500; cursor:pointer; text-align:center; transition:all 0.2s; -webkit-appearance:none; }
+.cat-btn small { display:block; font-size:11px; color:var(--text3); margin-top:3px; font-weight:400; }
+.cat-btn.selected { border-color:var(--accent); background:rgba(230,57,70,0.15); color:var(--text); }
+
+.gender-row { display:flex; gap:8px; }
+.gender-btn { flex:1; padding:12px; border-radius:var(--radius); border:1.5px solid var(--border2); background:var(--card2); color:var(--text2); font-size:14px; cursor:pointer; text-align:center; transition:all 0.2s; -webkit-appearance:none; }
+.gender-btn.selected { border-color:var(--blue); background:rgba(76,201,240,0.15); color:var(--text); }
+
+.info-row { display:flex; gap:8px; }
+.info-chip { flex:1; background:var(--card2); border-radius:var(--radius); padding:12px; text-align:center; }
+.info-chip .val { font-size:20px; font-weight:700; color:var(--gold); }
+.info-chip .lbl { font-size:11px; color:var(--text3); margin-top:2px; }
+
+/* TIMER */
+.timer-display { background:var(--bg3); border-radius:var(--radius-lg); border:1px solid var(--border); padding:28px 20px; text-align:center; }
+.timer-phase { font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:2px; margin-bottom:8px; }
+.timer-phase.round { color:var(--accent2); }
+.timer-phase.rest  { color:var(--teal); }
+.timer-phase.prep  { color:var(--gold); }
+.timer-phase.done  { color:var(--gold); }
+.timer-time { font-size:72px; font-weight:800; letter-spacing:-2px; line-height:1; font-variant-numeric:tabular-nums; color:var(--text); }
+.timer-time.urgent { color:var(--accent2); animation:pulse 0.5s ease-in-out infinite alternate; }
+@keyframes pulse { from{opacity:1} to{opacity:0.5} }
+.timer-sub { font-size:14px; color:var(--text3); margin-top:8px; }
+.timer-progress { margin-top:16px; height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
+.timer-progress-bar { height:100%; border-radius:3px; transition:width 0.9s linear; }
+.round-bar { background:var(--accent); }
+.rest-bar  { background:var(--teal); }
+.prep-bar  { background:var(--gold); }
+
+/* CONTROLS */
+.controls { display:flex; gap:10px; align-items:center; }
+.btn-main { flex:1; padding:16px; border-radius:var(--radius-lg); border:none; font-size:16px; font-weight:700; cursor:pointer; transition:all 0.15s; -webkit-appearance:none; letter-spacing:0.3px; }
+.btn-main:active { transform:scale(0.97); }
+.btn-start { background:var(--accent); color:white; }
+.btn-pause { background:var(--gold); color:#1a1a00; }
+.btn-stop  { width:54px; height:54px; padding:0; border-radius:var(--radius); border:1.5px solid var(--border2); background:var(--card2); color:var(--text2); font-size:20px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; -webkit-appearance:none; transition:all 0.15s; }
+.btn-stop:active { transform:scale(0.95); }
+
+/* SOUND CARDS */
+.sound-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:0; }
+.sound-card { background:var(--card2); border-radius:var(--radius); border:1.5px solid var(--border); padding:12px; cursor:pointer; transition:all 0.2s; display:flex; flex-direction:column; gap:6px; -webkit-appearance:none; }
+.sound-card:active { transform:scale(0.97); }
+.sound-card.active-sound { border-color:var(--teal); background:rgba(6,214,160,0.1); }
+.sound-card .s-icon { font-size:26px; line-height:1; }
+.sound-card .s-name { font-size:12px; font-weight:600; color:var(--text); }
+.sound-card .s-desc { font-size:10px; color:var(--text3); line-height:1.3; }
+.sound-card .s-status { margin-top:4px; font-size:10px; font-weight:600; color:var(--teal); }
+
+/* RECORD */
+.record-area { background:var(--bg3); border-radius:var(--radius-lg); border:1px solid var(--border); padding:20px; display:flex; flex-direction:column; align-items:center; gap:14px; }
+.record-btn { width:80px; height:80px; border-radius:50%; border:3px solid var(--accent); background:rgba(230,57,70,0.1); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:30px; transition:all 0.2s; -webkit-appearance:none; }
+.record-btn.recording { background:var(--accent); animation:rec-pulse 1s ease-in-out infinite; }
+@keyframes rec-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(230,57,70,0.4)} 50%{box-shadow:0 0 0 14px rgba(230,57,70,0)} }
+.record-status { font-size:14px; color:var(--text2); text-align:center; }
+.record-timer  { font-size:28px; font-weight:700; color:var(--accent2); font-variant-numeric:tabular-nums; }
+.waveform { width:100%; height:40px; display:flex; align-items:center; gap:2px; }
+.wave-bar { flex:1; background:var(--accent); border-radius:2px; height:4px; transition:height 0.1s; opacity:0.4; }
+
+/* MP3 UPLOAD */
+.upload-zone {
+  border:2px dashed var(--border2);
+  border-radius:var(--radius-lg);
+  padding:20px;
+  text-align:center;
+  cursor:pointer;
+  transition:all 0.2s;
+  background:var(--card2);
+  position:relative;
+}
+.upload-zone:hover, .upload-zone.drag-over { border-color:var(--blue); background:rgba(76,201,240,0.08); }
+.upload-zone input[type=file] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+.upload-zone .uz-icon { font-size:32px; margin-bottom:8px; }
+.upload-zone .uz-title { font-size:14px; font-weight:600; color:var(--text); margin-bottom:4px; }
+.upload-zone .uz-sub { font-size:12px; color:var(--text3); }
+
+/* FILE SIZE BADGE */
+.size-badge { font-size:10px; color:var(--text3); background:var(--bg3); border-radius:4px; padding:2px 6px; }
+
+/* REC LIST */
+.rec-item { background:var(--card2); border-radius:var(--radius); border:1px solid var(--border); padding:12px 14px; display:flex; align-items:center; gap:12px; }
+.rec-item .rec-info { flex:1; min-width:0; }
+.rec-item .rec-name { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rec-item .rec-meta { font-size:11px; color:var(--text3); margin-top:2px; }
+.rec-item .rec-actions { display:flex; gap:6px; flex-shrink:0; }
+.icon-btn { width:34px; height:34px; border-radius:8px; border:1px solid var(--border2); background:var(--card); color:var(--text2); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:16px; transition:all 0.15s; -webkit-appearance:none; }
+.icon-btn:active { transform:scale(0.93); }
+.icon-btn.play-btn { color:var(--teal); border-color:rgba(6,214,160,0.3); }
+.icon-btn.del-btn  { color:var(--accent2); border-color:rgba(255,107,107,0.3); }
+
+/* TABS inside sounds screen */
+.tab-row { display:flex; gap:0; background:var(--card2); border-radius:var(--radius); padding:3px; }
+.tab-btn { flex:1; padding:8px; border:none; background:none; color:var(--text3); font-size:13px; font-weight:500; border-radius:9px; cursor:pointer; transition:all 0.2s; -webkit-appearance:none; }
+.tab-btn.active { background:var(--card); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,0.3); }
+
+/* SETTINGS */
+.settings-section-title { font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.8px; color:var(--text3); padding:0 4px 8px; }
+.settings-group { background:var(--card); border-radius:var(--radius-lg); border:1px solid var(--border); overflow:hidden; }
+.setting-row { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border); gap:12px; min-height:58px; }
+.setting-row:last-child { border-bottom:none; }
+.setting-row.tappable { cursor:pointer; }
+.setting-row.tappable:active { background:var(--card2); }
+.setting-label { font-size:15px; font-weight:600; color:var(--text); }
+.setting-val { font-size:14px; color:var(--text3); margin-top:2px; }
+.setting-sub { font-size:12px; color:var(--text3); margin-top:2px; line-height:1.3; }
+.setting-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.chevron { color:var(--text3); font-size:16px; }
+
+.toggle { width:51px; height:31px; background:var(--border2); border-radius:16px; position:relative; cursor:pointer; transition:background 0.2s; border:none; flex-shrink:0; -webkit-appearance:none; }
+.toggle::after { content:''; position:absolute; width:27px; height:27px; background:white; border-radius:50%; top:2px; left:2px; transition:transform 0.2s; box-shadow:0 2px 4px rgba(0,0,0,0.3); }
+.toggle.on { background:#30d158; }
+.toggle.on::after { transform:translateX(20px); }
+
+.stepper { display:flex; align-items:center; gap:10px; }
+.step-btn { width:34px; height:34px; border-radius:50%; border:1.5px solid var(--border2); background:var(--card2); color:var(--text); font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-appearance:none; flex-shrink:0; }
+.step-btn:active { transform:scale(0.9); }
+.step-val { font-size:18px; font-weight:700; color:var(--text); min-width:28px; text-align:center; }
+
+.volume-row { display:flex; align-items:center; gap:10px; width:100%; }
+.volume-row input[type=range] { flex:1; -webkit-appearance:none; height:4px; background:var(--border2); border-radius:2px; outline:none; }
+.volume-row input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:white; cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,0.4); }
+
+/* MODAL */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:200; align-items:flex-end; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal-sheet { background:var(--card); border-radius:20px 20px 0 0; width:100%; max-width:480px; padding:20px; padding-bottom:max(20px,env(safe-area-inset-bottom)); }
+.modal-title { font-size:16px; font-weight:700; color:var(--text); text-align:center; }
+.modal-close { background:none; border:none; color:var(--text3); font-size:20px; cursor:pointer; }
+.time-picker { display:flex; align-items:center; justify-content:center; gap:8px; margin:20px 0; }
+.time-col { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.time-col label { font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; }
+.time-col input[type=number] { width:72px; height:52px; background:var(--card2); border:1.5px solid var(--border2); border-radius:var(--radius); color:var(--text); font-size:26px; font-weight:700; text-align:center; -webkit-appearance:none; appearance:none; outline:none; }
+.time-col input[type=number]:focus { border-color:var(--accent); }
+.time-sep { font-size:28px; font-weight:700; color:var(--text2); margin-top:18px; }
+.modal-btn { width:100%; padding:15px; border:none; border-radius:var(--radius-lg); font-size:16px; font-weight:700; cursor:pointer; -webkit-appearance:none; }
+.modal-btn.primary { background:var(--accent); color:white; }
+
+input.styled { background:var(--card2); color:var(--text); border:1.5px solid var(--border2); border-radius:var(--radius); padding:10px 12px; font-size:14px; width:100%; outline:none; -webkit-appearance:none; }
+input.styled:focus { border-color:var(--accent); }
+
+/* TOAST */
+#toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--card2); color:var(--text); padding:10px 20px; border-radius:20px; font-size:13px; font-weight:500; border:1px solid var(--border2); opacity:0; transition:all 0.3s; pointer-events:none; z-index:300; white-space:nowrap; }
+#toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* UTILS */
+.gap-8 { display:flex; flex-direction:column; gap:8px; }
+.flex-row { display:flex; gap:8px; align-items:center; }
+.grow { flex:1; }
+.text-sm { font-size:13px; color:var(--text2); }
+.mt-12 { margin-top:12px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ═══════ TIMER SCREEN ═══════ -->
+  <div class="screen active" id="screen-timer">
+    <div class="header">
+      <h1>Box<span>Coach</span></h1>
+      <span class="badge" id="header-badge">⬤ ГОТОВ</span>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Категория</div>
+      <div class="category-grid" id="cat-grid">
+        <button class="cat-btn selected" data-cat="adult">Взрослые<small>18+</small></button>
+        <button class="cat-btn" data-cat="junior">Юниоры<small>15–17 лет</small></button>
+        <button class="cat-btn" data-cat="master">Мастера<small>40+</small></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Пол</div>
+      <div class="gender-row" id="gender-row">
+        <button class="gender-btn selected" data-gender="male">♂ Мужчины</button>
+        <button class="gender-btn" data-gender="female">♀ Женщины</button>
+      </div>
+    </div>
+
+    <div class="info-row">
+      <div class="info-chip"><div class="val" id="chip-rounds">3</div><div class="lbl">раунда</div></div>
+      <div class="info-chip"><div class="val" id="chip-round-time">3:00</div><div class="lbl">раунд</div></div>
+      <div class="info-chip"><div class="val" id="chip-rest-time">1:00</div><div class="lbl">отдых</div></div>
+    </div>
+
+    <div class="timer-display">
+      <div class="timer-phase round" id="timer-phase">РАУНД 1</div>
+      <div class="timer-time" id="timer-time">3:00</div>
+      <div class="timer-sub" id="timer-sub">Выберите категорию и нажмите Старт</div>
+      <div class="timer-progress">
+        <div class="timer-progress-bar round-bar" id="timer-bar" style="width:100%"></div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn-main btn-start" id="btn-start-stop" onclick="timerStartStop()">▶ СТАРТ</button>
+      <button class="btn-stop" onclick="timerReset()" title="Сброс">■</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Активные звуки поддержки</div>
+      <div id="fight-sounds-list" class="gap-8">
+        <div class="text-sm" style="color:var(--text3);text-align:center;padding:8px 0;">Настройте звуки во вкладке 🔊</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ SOUNDS SCREEN ═══════ -->
+  <div class="screen" id="screen-sounds">
+    <div class="header"><h1>Звуки</h1></div>
+
+    <div class="tab-row">
+      <button class="tab-btn active" id="tab-builtin" onclick="showTab('builtin')">🔊 Встроенные</button>
+      <button class="tab-btn" id="tab-record" onclick="showTab('record')">🎙 Запись</button>
+      <button class="tab-btn" id="tab-mp3" onclick="showTab('mp3')">🎵 MP3</button>
+    </div>
+
+    <!-- Builtin tab -->
+    <div id="panel-builtin">
+      <div class="card">
+        <div class="card-title">Выберите звуки поддержки</div>
+        <div class="sound-grid" id="builtin-sounds"></div>
+      </div>
+    </div>
+
+    <!-- Record tab -->
+    <div id="panel-record" style="display:none; flex-direction:column; gap:14px;">
+      <div class="card">
+        <div class="card-title">Запись голоса</div>
+        <div class="record-area">
+          <div class="waveform" id="waveform"></div>
+          <button class="record-btn" id="rec-btn" onclick="toggleRecording()">🎙</button>
+          <div class="record-timer" id="rec-timer">0:00</div>
+          <div class="record-status" id="rec-status">Нажмите для записи</div>
+        </div>
+        <div class="mt-12 gap-8">
+          <div class="flex-row">
+            <input class="styled grow" type="text" id="rec-name-input" placeholder="Название записи...">
+            <button class="btn-main btn-start" style="flex:0;padding:10px 18px;font-size:14px;" onclick="saveRecording()">Сохранить</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Мои записи голоса</div>
+        <div class="gap-8" id="recordings-list">
+          <div class="text-sm" style="color:var(--text3);text-align:center;padding:8px 0;">Записей пока нет</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MP3 tab -->
+    <div id="panel-mp3" style="display:none; flex-direction:column; gap:14px;">
+      <div class="card">
+        <div class="card-title">Загрузить MP3 / M4A / WAV / OGG</div>
+        <div class="upload-zone" id="upload-zone">
+          <input type="file" id="mp3-file-input" accept="audio/*,audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/m4a,.mp3,.wav,.ogg,.m4a" multiple onchange="handleMp3Upload(this.files)">
+          <div class="uz-icon">🎵</div>
+          <div class="uz-title">Нажмите или перетащите файлы</div>
+          <div class="uz-sub">MP3, WAV, OGG, M4A · до 10 МБ каждый</div>
+        </div>
+        <div id="upload-progress" style="display:none;margin-top:12px;">
+          <div style="font-size:13px;color:var(--text2);" id="upload-status">Загрузка...</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Загруженные файлы</div>
+        <div class="gap-8" id="mp3-list">
+          <div class="text-sm" style="color:var(--text3);text-align:center;padding:8px 0;">Файлов пока нет</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ SETTINGS SCREEN ═══════ -->
+  <div class="screen" id="screen-settings">
+    <div class="header"><h1>Настройки</h1></div>
+
+    <div class="settings-section">
+      <div class="settings-section-title">Настройки профиля</div>
+      <div class="settings-group">
+
+        <div class="setting-row tappable" onclick="openProfileModal()">
+          <div class="grow">
+            <div class="setting-label">Профиль</div>
+            <div class="setting-val" id="disp-profile">classic boxing</div>
+          </div>
+          <div class="setting-right"><span class="chevron">›</span></div>
+        </div>
+
+        <div class="setting-row">
+          <div class="grow">
+            <div class="setting-label">Количество раундов</div>
+            <div class="setting-val" id="disp-rounds">3</div>
+          </div>
+          <div class="stepper">
+            <button class="step-btn" onclick="changeRounds(-1)">−</button>
+            <span class="step-val" id="step-rounds">3</span>
+            <button class="step-btn" onclick="changeRounds(1)">+</button>
+          </div>
+        </div>
+
+        <div class="setting-row tappable" onclick="openTimeModal('round')">
+          <div class="grow">
+            <div class="setting-label">Время раунда</div>
+            <div class="setting-val" id="disp-round-time">03:00</div>
+          </div>
+          <div class="setting-right"><span class="chevron">›</span></div>
+        </div>
+
+        <div class="setting-row tappable" onclick="openTimeModal('rest')">
+          <div class="grow">
+            <div class="setting-label">Время отдыха</div>
+            <div class="setting-val" id="disp-rest-time">01:00</div>
+          </div>
+          <div class="setting-right"><span class="chevron">›</span></div>
+        </div>
+
+        <div class="setting-row tappable" onclick="openTimeModal('endsig')">
+          <div class="grow">
+            <div class="setting-label">Сигнал конца раунда</div>
+            <div class="setting-val" id="disp-endsig">00:05</div>
+          </div>
+          <div class="setting-right"><span class="chevron">›</span></div>
+        </div>
+
+        <div class="setting-row tappable" onclick="openTimeModal('period')">
+          <div class="grow">
+            <div class="setting-label">Период сигнала внутри</div>
+            <div class="setting-val" id="disp-period">00:00</div>
+          </div>
+          <div class="setting-right"><span class="chevron">›</span></div>
+        </div>
+
+        <div class="setting-row tappable" onclick="openTimeModal('prep')">
+          <div class="grow">
+            <div class="setting-label">Время для подготовки</div>
+            <div class="setting-val" id="disp-prep">00:05</div>
+          </div>
+          <div class="setting-right"><span class="chevron">›</span></div>
+        </div>
+
+        <div class="setting-row">
+          <div class="grow">
+            <div class="setting-label">Сигнал окончания перерыва</div>
+            <div class="setting-sub">Звучит за 10 секунд до конца отдыха</div>
+          </div>
+          <button class="toggle on" id="toggle-endsig" onclick="toggleSetting('endsig')"></button>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title" style="margin-top:20px;">Настройки датчиков</div>
+      <div class="settings-group">
+        <div class="setting-row">
+          <div class="grow">
+            <div class="setting-label">Использовать акселерометр</div>
+            <div class="setting-sub">Потрясите телефон для управления кнопкой «Fight»</div>
+          </div>
+          <button class="toggle" id="toggle-accel" onclick="toggleSetting('accel')"></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="settings-section-title" style="margin-top:20px;">Звук</div>
+      <div class="settings-group">
+        <div class="setting-row">
+          <div class="grow"><div class="setting-label">Гонг</div></div>
+          <button class="toggle on" id="toggle-gong" onclick="toggleSetting('gong')"></button>
+        </div>
+        <div class="setting-row">
+          <div class="grow"><div class="setting-label">Автозвуки поддержки</div></div>
+          <button class="toggle on" id="toggle-auto" onclick="toggleSetting('auto')"></button>
+        </div>
+        <div class="setting-row">
+          <div class="grow"><div class="setting-label">Не гасить экран</div></div>
+          <button class="toggle" id="toggle-wake" onclick="toggleSetting('wake')"></button>
+        </div>
+        <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:10px;">
+          <div class="setting-label">Громкость гонга</div>
+          <div class="volume-row">
+            <span>🔔</span>
+            <input type="range" min="0" max="100" value="80" id="vol-gong" oninput="updateVol('gong',this.value)">
+            <span id="vol-gong-val" style="font-size:13px;color:var(--text2);min-width:30px;">80</span>
+          </div>
+        </div>
+        <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:10px;border:none;">
+          <div class="setting-label">Громкость поддержки</div>
+          <div class="volume-row">
+            <span>📣</span>
+            <input type="range" min="0" max="100" value="90" id="vol-cheer" oninput="updateVol('cheer',this.value)">
+            <span id="vol-cheer-val" style="font-size:13px;color:var(--text2);min-width:30px;">90</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="height:16px;"></div>
+  </div>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <button class="nav-btn active" id="nav-timer" onclick="showScreen('timer')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+      Таймер
+    </button>
+    <button class="nav-btn" id="nav-sounds" onclick="showScreen('sounds')">
+      <svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+      Звуки
+    </button>
+    <button class="nav-btn" id="nav-settings" onclick="showScreen('settings')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Настройки
+    </button>
+  </nav>
+</div>
+
+<!-- TIME MODAL -->
+<div class="modal-overlay" id="time-modal" onclick="closeTimeModal(event)">
+  <div class="modal-sheet">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <div style="width:32px;"></div>
+      <div class="modal-title" id="modal-title">Время раунда</div>
+      <button class="modal-close" onclick="closeTimeModal(null,true)">✕</button>
+    </div>
+    <div class="time-picker">
+      <div class="time-col">
+        <label>Мин</label>
+        <input type="number" id="tp-min" min="0" max="59" value="3">
+      </div>
+      <div class="time-sep">:</div>
+      <div class="time-col">
+        <label>Сек</label>
+        <input type="number" id="tp-sec" min="0" max="59" value="0">
+      </div>
+    </div>
+    <button class="modal-btn primary" onclick="applyTime()">Применить</button>
+  </div>
+</div>
+
+<!-- PROFILE MODAL -->
+<div class="modal-overlay" id="profile-modal" onclick="closeProfileModal(event)">
+  <div class="modal-sheet">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div style="width:32px;"></div>
+      <div class="modal-title">Название профиля</div>
+      <button class="modal-close" onclick="closeProfileModal(null,true)">✕</button>
+    </div>
+    <input class="styled" type="text" id="profile-input" placeholder="classic boxing" style="margin-bottom:16px;">
+    <button class="modal-btn primary" onclick="applyProfile()">Сохранить</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+//  BOXING RULES
+// ══════════════════════════════════════════════
+const RULES = {
+  adult:  { male:{rounds:3,roundTime:180,restTime:60}, female:{rounds:4,roundTime:120,restTime:60} },
+  junior: { male:{rounds:3,roundTime:120,restTime:60}, female:{rounds:3,roundTime:120,restTime:60} },
+  master: { male:{rounds:3,roundTime:120,restTime:60}, female:{rounds:3,roundTime:120,restTime:60} },
+};
+
+// ══════════════════════════════════════════════
+//  PROFILE
+// ══════════════════════════════════════════════
+let profile = {
+  name:'classic boxing', rounds:3, roundTime:180, restTime:60,
+  endSigSec:5, periodSec:0, prepTime:5, endSigEnabled:true, accel:false,
+};
+
+function loadProfile() {
+  try { const s=JSON.parse(localStorage.getItem('boxcoach_profile')||'null'); if(s) Object.assign(profile,s); } catch(e) {}
+}
+function saveProfile() {
+  try { localStorage.setItem('boxcoach_profile',JSON.stringify(profile)); } catch(e) {}
+}
+function updateProfileDisplays() {
+  document.getElementById('disp-profile').textContent = profile.name;
+  document.getElementById('disp-rounds').textContent = profile.rounds;
+  document.getElementById('step-rounds').textContent = profile.rounds;
+  document.getElementById('disp-round-time').textContent = fmtTimePad(profile.roundTime);
+  document.getElementById('disp-rest-time').textContent = fmtTimePad(profile.restTime);
+  document.getElementById('disp-endsig').textContent = fmtTimePad(profile.endSigSec);
+  document.getElementById('disp-period').textContent = fmtTimePad(profile.periodSec);
+  document.getElementById('disp-prep').textContent = fmtTimePad(profile.prepTime);
+  ['endsig','accel','gong','auto','wake'].forEach(k => {
+    const el=document.getElementById('toggle-'+k); if(!el) return;
+    const val = k==='endsig' ? profile.endSigEnabled : k==='accel' ? profile.accel : settings[k];
+    el.classList.toggle('on',!!val);
+  });
+  document.getElementById('chip-rounds').textContent = profile.rounds;
+  document.getElementById('chip-round-time').textContent = fmtTime(profile.roundTime);
+  document.getElementById('chip-rest-time').textContent = fmtTime(profile.restTime);
+}
+
+// ══════════════════════════════════════════════
+//  BUILT-IN SOUNDS
+// ══════════════════════════════════════════════
+const BUILTIN_SOUNDS = [
+  {id:'gong',    icon:'🔔', name:'Гонг',      desc:'Начало/конец раунда', synth:'gong'},
+  {id:'whistle', icon:'📯', name:'Свисток',    desc:'Сигнал внутри',       synth:'whistle'},
+  {id:'cheer1',  icon:'💪', name:'Давай!',      desc:'Одобрение',           synth:'cheer1'},
+  {id:'cheer2',  icon:'🥊', name:'Работай!',    desc:'Активация',           synth:'cheer2'},
+  {id:'cheer3',  icon:'🔥', name:'Огонь!',      desc:'Максимум',            synth:'cheer3'},
+  {id:'cheer4',  icon:'⚡', name:'Быстрее!',     desc:'Темп',                synth:'cheer4'},
+  {id:'rest',    icon:'🛎', name:'Отдых',       desc:'Перерыв',             synth:'rest'},
+  {id:'finish',  icon:'🏆', name:'Финал',       desc:'Конец боя',           synth:'finish'},
+];
+
+let activeSounds = new Set(['gong','cheer1','cheer2']);
+let settings = { gong:true, auto:true, wake:false, volGong:0.8, volCheer:0.9 };
+let audioCtx = null, wakeLock = null;
+
+function getAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function synthSound(type) {
+  try {
+    const ctx = getAudio();
+    const t = ctx.currentTime;
+    const vol = (type.startsWith('cheer')||type==='finish') ? settings.volCheer : settings.volGong;
+    if (type==='gong') {
+      [[220,110,2.5,1],[330,165,2,0.5]].forEach(([f,f2,d,v])=>{const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type='sine';o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(f2,t+d);g.gain.setValueAtTime(vol*v,t);g.gain.exponentialRampToValueAtTime(0.001,t+d+0.5);o.start(t);o.stop(t+d+0.6);});
+    } else if (type==='whistle') {
+      for(let i=0;i<3;i++){const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type='sine';o.frequency.value=1200;g.gain.setValueAtTime(0,t+i*0.25);g.gain.linearRampToValueAtTime(vol,t+i*0.25+0.02);g.gain.setValueAtTime(vol,t+i*0.25+0.15);g.gain.linearRampToValueAtTime(0,t+i*0.25+0.2);o.start(t+i*0.25);o.stop(t+i*0.25+0.21);}
+    } else if (type==='cheer1') {
+      [440,554,660].forEach((f,i)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type='triangle';o.frequency.value=f;g.gain.setValueAtTime(0,t+i*0.12);g.gain.linearRampToValueAtTime(vol*0.7,t+i*0.12+0.05);g.gain.linearRampToValueAtTime(0,t+i*0.12+0.15);o.start(t+i*0.12);o.stop(t+i*0.12+0.16);});
+    } else if (type==='cheer2') {
+      for(let i=0;i<4;i++){const buf=ctx.createBuffer(1,ctx.sampleRate*0.1,ctx.sampleRate),d=buf.getChannelData(0);for(let j=0;j<d.length;j++)d[j]=(Math.random()*2-1)*Math.exp(-j/(d.length*0.3));const src=ctx.createBufferSource(),flt=ctx.createBiquadFilter(),g=ctx.createGain();flt.type='lowpass';flt.frequency.value=200;src.buffer=buf;src.connect(flt);flt.connect(g);g.connect(ctx.destination);g.gain.setValueAtTime(vol*(i%2===0?1:0.7),t+i*0.18);src.start(t+i*0.18);}
+    } else if (type==='cheer3') {
+      const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type='sawtooth';o.frequency.setValueAtTime(200,t);o.frequency.linearRampToValueAtTime(400,t+0.5);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+0.1);g.gain.setValueAtTime(vol,t+0.4);g.gain.linearRampToValueAtTime(0,t+0.6);o.start(t);o.stop(t+0.65);
+    } else if (type==='cheer4') {
+      for(let i=0;i<6;i++){const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type='square';o.frequency.value=600+i*80;g.gain.setValueAtTime(0,t+i*0.08);g.gain.linearRampToValueAtTime(vol*0.5,t+i*0.08+0.02);g.gain.linearRampToValueAtTime(0,t+i*0.08+0.07);o.start(t+i*0.08);o.stop(t+i*0.08+0.08);}
+    } else if (type==='rest') {
+      [[440,0,0.3,vol],[330,0.4,1.0,vol]].forEach(([f,delay,dur,v])=>{const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(delay===0?v:0,t+delay);if(delay>0)g.gain.linearRampToValueAtTime(v,t+delay+0.1);g.gain.setValueAtTime(v,t+delay+dur*0.7);g.gain.linearRampToValueAtTime(0,t+delay+dur);o.start(t+delay);o.stop(t+delay+dur+0.1);});
+    } else if (type==='finish') {
+      [220,277,330,440].forEach((f,i)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(vol,t+i*0.15);g.gain.exponentialRampToValueAtTime(0.001,t+i*0.15+0.5);o.start(t+i*0.15);o.stop(t+i*0.15+0.55);});
+    }
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════
+//  TIMER
+// ══════════════════════════════════════════════
+let timerState = {
+  running:false, paused:false, currentRound:1,
+  isRest:false, isPrep:false, remaining:180,
+  interval:null, autoSoundTimer:null, periodTimer:null,
+  warnFired:false, gender:'male'
+};
+
+function fmtTime(s) { return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; }
+function fmtTimePad(s) { return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
+
+function renderTimer() {
+  const phase=document.getElementById('timer-phase');
+  const timeEl=document.getElementById('timer-time');
+  const sub=document.getElementById('timer-sub');
+  const bar=document.getElementById('timer-bar');
+  let total, barClass;
+  if (timerState.isPrep) {
+    total=profile.prepTime; barClass='prep-bar';
+    phase.textContent='ПОДГОТОВКА'; phase.className='timer-phase prep';
+    sub.textContent='Приготовьтесь!';
+  } else if (timerState.isRest) {
+    total=profile.restTime; barClass='rest-bar';
+    phase.textContent=`ОТДЫХ → РАУНД ${timerState.currentRound}`; phase.className='timer-phase rest';
+    sub.textContent='Восстановление';
+  } else {
+    total=profile.roundTime; barClass='round-bar';
+    if (!timerState.running && timerState.currentRound > profile.rounds) {
+      phase.textContent='🏆 БОЙ ОКОНЧЕН'; phase.className='timer-phase done';
+      sub.textContent='Все раунды завершены!';
+    } else {
+      phase.textContent=`РАУНД ${timerState.currentRound} из ${profile.rounds}`; phase.className='timer-phase round';
+      sub.textContent=timerState.running ? (timerState.paused ? 'На паузе' : 'Идёт бой!') : 'Нажмите СТАРТ';
+    }
+  }
+  const pct=total>0 ? (timerState.remaining/total*100) : 0;
+  timeEl.textContent=fmtTime(timerState.remaining);
+  timeEl.classList.toggle('urgent', timerState.remaining<=10 && !timerState.isRest && !timerState.isPrep);
+  bar.style.width=pct+'%'; bar.className='timer-progress-bar '+barClass;
+}
+
+function timerTick() {
+  if (timerState.paused) return;
+  if (timerState.isRest && profile.endSigEnabled && timerState.remaining===10) synthSound('whistle');
+  if (!timerState.isRest && !timerState.isPrep && profile.endSigSec>0 && timerState.remaining===profile.endSigSec && !timerState.warnFired) {
+    timerState.warnFired=true; synthSound('whistle');
+  }
+  if (timerState.remaining<=0) {
+    if (timerState.isPrep) {
+      timerState.isPrep=false; timerState.remaining=profile.roundTime; timerState.warnFired=false;
+      if (settings.gong) synthSound('gong');
+      scheduleAutoSound(); schedulePeriodic();
+    } else if (timerState.isRest) {
+      timerState.isRest=false; timerState.remaining=profile.roundTime; timerState.warnFired=false;
+      if (settings.gong) synthSound('gong');
+      scheduleAutoSound(); schedulePeriodic();
+    } else {
+      if (settings.gong) synthSound('rest');
+      clearAutoSound(); clearPeriodic();
+      if (timerState.currentRound>=profile.rounds) {
+        clearInterval(timerState.interval); timerState.interval=null;
+        timerState.running=false; timerState.currentRound++;
+        synthSound('finish');
+        document.getElementById('btn-start-stop').textContent='▶ НОВЫЙ БОЙ';
+        document.getElementById('btn-start-stop').className='btn-main btn-start';
+        document.getElementById('header-badge').textContent='⬤ ГОТОВ';
+        document.getElementById('header-badge').style.background='var(--text3)';
+        releaseWakeLock(); renderTimer(); showToast('🏆 Бой окончен!'); return;
+      }
+      timerState.currentRound++; timerState.isRest=true; timerState.remaining=profile.restTime;
+    }
+  } else { timerState.remaining--; }
+  renderTimer();
+}
+
+function timerStartStop() {
+  const btn=document.getElementById('btn-start-stop');
+  if (!timerState.running) {
+    timerState.running=true; timerState.paused=false;
+    timerState.currentRound=1; timerState.warnFired=false;
+    if (profile.prepTime>0) {
+      timerState.isPrep=true; timerState.isRest=false; timerState.remaining=profile.prepTime;
+    } else {
+      timerState.isPrep=false; timerState.isRest=false; timerState.remaining=profile.roundTime;
+      if (settings.gong) synthSound('gong');
+      scheduleAutoSound(); schedulePeriodic();
+    }
+    timerState.interval=setInterval(timerTick,1000);
+    btn.textContent='⏸ ПАУЗА'; btn.className='btn-main btn-pause';
+    document.getElementById('header-badge').textContent='⬤ БОЙ';
+    document.getElementById('header-badge').style.background='var(--accent)';
+    requestWakeLock(); renderTimer();
+  } else if (!timerState.paused) {
+    timerState.paused=true; btn.textContent='▶ ПРОДОЛЖИТЬ'; btn.className='btn-main btn-start';
+    document.getElementById('header-badge').textContent='⏸ ПАУЗА';
+    document.getElementById('header-badge').style.background='var(--gold)';
+  } else {
+    timerState.paused=false; btn.textContent='⏸ ПАУЗА'; btn.className='btn-main btn-pause';
+    document.getElementById('header-badge').textContent='⬤ БОЙ';
+    document.getElementById('header-badge').style.background='var(--accent)';
+  }
+}
+
+function timerReset() {
+  clearInterval(timerState.interval); timerState.interval=null;
+  clearAutoSound(); clearPeriodic();
+  Object.assign(timerState, {running:false,paused:false,currentRound:1,isRest:false,isPrep:false,remaining:profile.roundTime,warnFired:false});
+  releaseWakeLock();
+  document.getElementById('btn-start-stop').textContent='▶ СТАРТ';
+  document.getElementById('btn-start-stop').className='btn-main btn-start';
+  document.getElementById('header-badge').textContent='⬤ ГОТОВ';
+  document.getElementById('header-badge').style.background='var(--text3)';
+  renderTimer();
+}
+
+function scheduleAutoSound() {
+  clearAutoSound(); if (!settings.auto) return;
+  const cheerSounds=Array.from(activeSounds).filter(s=>s.startsWith('cheer'));
+  const recs=loadRecordings(); const mp3s=loadMp3s();
+  const all=[...cheerSounds,...recs.map(r=>'rec:'+r.id),...mp3s.map(m=>'mp3:'+m.id)];
+  if (!all.length) return;
+  const delay=15000+Math.random()*(profile.roundTime*500);
+  timerState.autoSoundTimer=setTimeout(()=>{
+    if (!timerState.running||timerState.paused||timerState.isRest||timerState.isPrep) return;
+    const pick=all[Math.floor(Math.random()*all.length)];
+    if (pick.startsWith('rec:')) playRecording(pick.replace('rec:',''));
+    else if (pick.startsWith('mp3:')) playMp3(pick.replace('mp3:',''));
+    else synthSound(pick);
+    scheduleAutoSound();
+  }, delay);
+}
+function clearAutoSound() { if(timerState.autoSoundTimer){clearTimeout(timerState.autoSoundTimer);timerState.autoSoundTimer=null;} }
+function schedulePeriodic() {
+  clearPeriodic(); if (profile.periodSec<=0) return;
+  timerState.periodTimer=setInterval(()=>{ if (!timerState.paused&&!timerState.isRest&&!timerState.isPrep) synthSound('whistle'); },profile.periodSec*1000);
+}
+function clearPeriodic() { if(timerState.periodTimer){clearInterval(timerState.periodTimer);timerState.periodTimer=null;} }
+async function requestWakeLock() { if(!settings.wake)return; try{if('wakeLock' in navigator)wakeLock=await navigator.wakeLock.request('screen');}catch(e){} }
+function releaseWakeLock() { if(wakeLock){wakeLock.release();wakeLock=null;} }
+
+// ══════════════════════════════════════════════
+//  CATEGORIES / GENDER
+// ══════════════════════════════════════════════
+document.getElementById('cat-grid').addEventListener('click',e=>{
+  const btn=e.target.closest('.cat-btn'); if(!btn) return;
+  document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+  const r=RULES[btn.dataset.cat][timerState.gender||'male'];
+  profile.rounds=r.rounds; profile.roundTime=r.roundTime; profile.restTime=r.restTime;
+  timerReset(); updateProfileDisplays(); saveProfile();
+});
+document.getElementById('gender-row').addEventListener('click',e=>{
+  const btn=e.target.closest('.gender-btn'); if(!btn) return;
+  document.querySelectorAll('.gender-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+  timerState.gender=btn.dataset.gender;
+  const cat=document.querySelector('.cat-btn.selected')?.dataset.cat||'adult';
+  const r=RULES[cat][btn.dataset.gender];
+  profile.rounds=r.rounds; profile.roundTime=r.roundTime; profile.restTime=r.restTime;
+  timerReset(); updateProfileDisplays(); saveProfile();
+});
+
+// ══════════════════════════════════════════════
+//  SETTINGS ACTIONS
+// ══════════════════════════════════════════════
+function changeRounds(d) { profile.rounds=Math.max(1,Math.min(20,profile.rounds+d)); updateProfileDisplays(); saveProfile(); timerReset(); }
+function toggleSetting(key) {
+  if (key==='endsig') profile.endSigEnabled=!profile.endSigEnabled;
+  else if (key==='accel') profile.accel=!profile.accel;
+  else settings[key]=!settings[key];
+  const val=key==='endsig'?profile.endSigEnabled:key==='accel'?profile.accel:settings[key];
+  document.getElementById('toggle-'+key).classList.toggle('on',!!val);
+  if (key==='endsig'||key==='accel') saveProfile();
+  if (key==='wake') { settings.wake?requestWakeLock():releaseWakeLock(); }
+}
+function updateVol(key,val) {
+  settings['vol'+key.charAt(0).toUpperCase()+key.slice(1)]=parseInt(val)/100;
+  document.getElementById('vol-'+key+'-val').textContent=val;
+}
+
+// TIME MODAL
+let currentTimeField='';
+const TIME_FIELDS = {
+  round:  {label:'Время раунда',          get:()=>profile.roundTime,  set:v=>{profile.roundTime=v;}},
+  rest:   {label:'Время отдыха',          get:()=>profile.restTime,   set:v=>{profile.restTime=v;}},
+  endsig: {label:'Сигнал конца раунда',   get:()=>profile.endSigSec,  set:v=>{profile.endSigSec=v;}},
+  period: {label:'Период сигнала внутри', get:()=>profile.periodSec,  set:v=>{profile.periodSec=v;}},
+  prep:   {label:'Время для подготовки',  get:()=>profile.prepTime,   set:v=>{profile.prepTime=v;}},
+};
+function openTimeModal(field) {
+  currentTimeField=field;
+  const f=TIME_FIELDS[field];
+  document.getElementById('modal-title').textContent=f.label;
+  const s=f.get();
+  document.getElementById('tp-min').value=Math.floor(s/60);
+  document.getElementById('tp-sec').value=s%60;
+  document.getElementById('time-modal').classList.add('open');
+}
+function closeTimeModal(e,force) { if(!force&&e&&e.target!==document.getElementById('time-modal'))return; document.getElementById('time-modal').classList.remove('open'); }
+function applyTime() {
+  const total=(parseInt(document.getElementById('tp-min').value)||0)*60+(parseInt(document.getElementById('tp-sec').value)||0);
+  TIME_FIELDS[currentTimeField].set(total);
+  updateProfileDisplays(); saveProfile(); timerReset();
+  document.getElementById('time-modal').classList.remove('open');
+}
+
+// PROFILE MODAL
+function openProfileModal() { document.getElementById('profile-input').value=profile.name; document.getElementById('profile-modal').classList.add('open'); }
+function closeProfileModal(e,force) { if(!force&&e&&e.target!==document.getElementById('profile-modal'))return; document.getElementById('profile-modal').classList.remove('open'); }
+function applyProfile() { const v=document.getElementById('profile-input').value.trim(); if(v){profile.name=v;updateProfileDisplays();saveProfile();} document.getElementById('profile-modal').classList.remove('open'); }
+
+// ══════════════════════════════════════════════
+//  SCREENS / TABS
+// ══════════════════════════════════════════════
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  document.getElementById('nav-'+name).classList.add('active');
+  if (name==='sounds') { renderSoundsScreen(); renderMp3List(); }
+}
+function showTab(name) {
+  ['builtin','record','mp3'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('active',t===name);
+    const p=document.getElementById('panel-'+t);
+    p.style.display = t===name ? (t==='builtin' ? 'block' : 'flex') : 'none';
+  });
+  if (name==='mp3') renderMp3List();
+  if (name==='record') renderRecordingsList();
+}
+
+// ══════════════════════════════════════════════
+//  BUILT-IN SOUNDS PANEL
+// ══════════════════════════════════════════════
+function renderSoundsScreen() {
+  const grid=document.getElementById('builtin-sounds');
+  grid.innerHTML='';
+  BUILTIN_SOUNDS.forEach(s=>{
+    const isActive=activeSounds.has(s.id);
+    const card=document.createElement('div');
+    card.className='sound-card'+(isActive?' active-sound':'');
+    card.innerHTML=`<div class="s-icon">${s.icon}</div><div class="s-name">${s.name}</div><div class="s-desc">${s.desc}</div><div class="s-status">${isActive?'✓ Включён':'○ Выключен'}</div>`;
+    card.addEventListener('click',()=>{
+      synthSound(s.synth);
+      if (s.id.startsWith('cheer')||s.id==='finish') {
+        activeSounds.has(s.id)?activeSounds.delete(s.id):activeSounds.add(s.id);
+        renderSoundsScreen(); updateFightSounds();
+      }
+    });
+    grid.appendChild(card);
+  });
+}
+
+function updateFightSounds() {
+  const list=document.getElementById('fight-sounds-list');
+  const recs=loadRecordings(); const mp3s=loadMp3s();
+  const activeCheer=BUILTIN_SOUNDS.filter(s=>activeSounds.has(s.id)&&s.id.startsWith('cheer'));
+  const items=[...activeCheer.map(s=>s.icon+' '+s.name),...recs.map(r=>'🎙 '+r.name),...mp3s.map(m=>'🎵 '+m.name)];
+  list.innerHTML=items.length
+    ? items.map(i=>`<div class="flex-row text-sm"><span>${i}</span></div>`).join('')
+    : '<div class="text-sm" style="color:var(--text3);text-align:center;padding:8px 0;">Нет активных звуков</div>';
+}
+
+// ══════════════════════════════════════════════
+//  VOICE RECORDING
+// ══════════════════════════════════════════════
+let mediaRecorder=null, recordedChunks=[], recordingInterval=null;
+let recordingSeconds=0, currentBlob=null, analyser=null, waveInterval=null;
+
+const waveform=document.getElementById('waveform');
+for(let i=0;i<20;i++){const b=document.createElement('div');b.className='wave-bar';b.id='wave-'+i;waveform.appendChild(b);}
+
+async function toggleRecording() { if(mediaRecorder&&mediaRecorder.state==='recording') stopRecording(); else startRecording(); }
+async function startRecording() {
+  try {
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    const ctx=getAudio();
+    analyser=ctx.createAnalyser(); analyser.fftSize=64;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+    const mime=getSupportedMime();
+    mediaRecorder=new MediaRecorder(stream,{mimeType:mime});
+    recordedChunks=[];
+    mediaRecorder.ondataavailable=e=>{if(e.data.size>0)recordedChunks.push(e.data);};
+    mediaRecorder.onstop=()=>{
+      currentBlob=new Blob(recordedChunks,{type:getSupportedMime()});
+      stream.getTracks().forEach(t=>t.stop()); stopWave();
+      document.getElementById('rec-status').textContent='Готово — введите название и сохраните';
+      document.getElementById('rec-btn').textContent='🎙';
+      document.getElementById('rec-btn').classList.remove('recording');
+    };
+    mediaRecorder.start(100); recordingSeconds=0;
+    document.getElementById('rec-btn').classList.add('recording');
+    document.getElementById('rec-btn').textContent='⏹';
+    document.getElementById('rec-status').textContent='Идёт запись...';
+    recordingInterval=setInterval(()=>{recordingSeconds++;document.getElementById('rec-timer').textContent=fmtTime(recordingSeconds);},1000);
+    startWave();
+  } catch(e) { showToast('Нет доступа к микрофону'); }
+}
+function getSupportedMime(){const t=['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4'];for(const m of t)if(MediaRecorder.isTypeSupported(m))return m;return 'audio/webm';}
+function stopRecording(){clearInterval(recordingInterval);if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();}
+function startWave(){waveInterval=setInterval(()=>{if(!analyser)return;const d=new Uint8Array(analyser.frequencyBinCount);analyser.getByteFrequencyData(d);for(let i=0;i<20;i++){const b=document.getElementById('wave-'+i);if(b){const v=(d[i]||0)/255;b.style.height=Math.max(4,v*36)+'px';b.style.opacity=0.4+v*0.6;}}},80);}
+function stopWave(){clearInterval(waveInterval);for(let i=0;i<20;i++){const b=document.getElementById('wave-'+i);if(b){b.style.height='4px';b.style.opacity='0.4';}}}
+
+function saveRecording() {
+  if(!currentBlob){showToast('Сначала сделайте запись');return;}
+  const name=document.getElementById('rec-name-input').value.trim()||('Запись '+new Date().toLocaleTimeString('ru'));
+  const recs=loadRecordings(); const id=Date.now().toString();
+  const reader=new FileReader();
+  reader.onload=e=>{
+    recs.push({id,name,dataUrl:e.target.result,date:new Date().toLocaleDateString('ru'),dur:recordingSeconds});
+    saveRecordings(recs); currentBlob=null;
+    document.getElementById('rec-name-input').value='';
+    document.getElementById('rec-timer').textContent='0:00';
+    document.getElementById('rec-status').textContent='Нажмите для записи';
+    renderRecordingsList(); updateFightSounds(); showToast('✅ Запись сохранена!');
+  };
+  reader.readAsDataURL(currentBlob);
+}
+
+function loadRecordings(){try{return JSON.parse(localStorage.getItem('boxcoach_recs')||'[]');}catch{return[];}}
+function saveRecordings(r){try{localStorage.setItem('boxcoach_recs',JSON.stringify(r));}catch(e){showToast('Ошибка: недостаточно места');}}
+
+function renderRecordingsList() {
+  const list=document.getElementById('recordings-list');
+  const recs=loadRecordings();
+  if(!recs.length){list.innerHTML='<div class="text-sm" style="color:var(--text3);text-align:center;padding:8px 0;">Записей пока нет</div>';return;}
+  list.innerHTML=recs.map(r=>`<div class="rec-item"><div style="font-size:20px;flex-shrink:0;">🎙</div><div class="rec-info"><div class="rec-name">${escHtml(r.name)}</div><div class="rec-meta">${r.date} · ${fmtTime(r.dur||0)}</div></div><div class="rec-actions"><button class="icon-btn play-btn" onclick="playRecording('${r.id}')">▶</button><button class="icon-btn del-btn" onclick="deleteRecording('${r.id}')">✕</button></div></div>`).join('');
+}
+
+function playRecording(id){const r=loadRecordings().find(r=>r.id===id);if(!r)return;const a=new Audio(r.dataUrl);a.volume=settings.volCheer;a.play().catch(()=>{});}
+function deleteRecording(id){saveRecordings(loadRecordings().filter(r=>r.id!==id));renderRecordingsList();updateFightSounds();showToast('Запись удалена');}
+
+// ══════════════════════════════════════════════
+//  MP3 UPLOAD
+// ══════════════════════════════════════════════
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
+function loadMp3s(){try{return JSON.parse(localStorage.getItem('boxcoach_mp3s')||'[]');}catch{return[];}}
+function saveMp3s(list){try{localStorage.setItem('boxcoach_mp3s',JSON.stringify(list));}catch(e){showToast('Ошибка: недостаточно места в памяти браузера');}}
+
+function fmtSize(bytes){if(bytes<1024)return bytes+'б';if(bytes<1024*1024)return Math.round(bytes/1024)+'КБ';return (bytes/1024/1024).toFixed(1)+'МБ';}
+
+async function handleMp3Upload(files) {
+  if (!files||!files.length) return;
+  const mp3s=loadMp3s();
+  let added=0, skipped=0;
+
+  for (const file of files) {
+    if (file.size > MAX_FILE_SIZE) { showToast(`⚠️ ${file.name}: слишком большой (макс. 10 МБ)`); skipped++; continue; }
+    if (!file.type.startsWith('audio/') && !file.name.match(/\.(mp3|wav|ogg|m4a|aac|flac)$/i)) {
+      showToast(`⚠️ ${file.name}: неподдерживаемый формат`); skipped++; continue;
+    }
+    // Check duplicate name
+    const baseName = file.name.replace(/\.[^.]+$/,'');
+    const alreadyExists = mp3s.some(m=>m.name===baseName);
+
+    const dataUrl = await readFileAsDataUrl(file);
+    const id = Date.now().toString() + Math.random().toString(36).slice(2);
+    mp3s.push({
+      id, name: alreadyExists ? baseName+' ('+new Date().toLocaleTimeString('ru')+')' : baseName,
+      dataUrl, size: file.size, type: file.type,
+      date: new Date().toLocaleDateString('ru')
+    });
+    added++;
+  }
+
+  if (added > 0) {
+    try { saveMp3s(mp3s); } catch(e) {
+      showToast('Слишком много файлов — браузер переполнен'); return;
+    }
+    renderMp3List(); updateFightSounds();
+    showToast(`✅ Загружено: ${added} файл${added===1?'':'ов'}${skipped>0?' ('+skipped+' пропущено)':''}`);
+  }
+
+  // Reset input so same file can be re-selected
+  document.getElementById('mp3-file-input').value='';
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=e=>res(e.target.result);
+    r.onerror=()=>rej(new Error('read error'));
+    r.readAsDataURL(file);
+  });
+}
+
+function renderMp3List() {
+  const list=document.getElementById('mp3-list');
+  const mp3s=loadMp3s();
+  if(!mp3s.length){list.innerHTML='<div class="text-sm" style="color:var(--text3);text-align:center;padding:8px 0;">Файлов пока нет</div>';return;}
+  list.innerHTML=mp3s.map(m=>`
+    <div class="rec-item">
+      <div style="font-size:20px;flex-shrink:0;">🎵</div>
+      <div class="rec-info">
+        <div class="rec-name">${escHtml(m.name)}</div>
+        <div class="rec-meta">${m.date} · <span class="size-badge">${fmtSize(m.size)}</span></div>
+      </div>
+      <div class="rec-actions">
+        <button class="icon-btn play-btn" onclick="playMp3('${m.id}')">▶</button>
+        <button class="icon-btn del-btn" onclick="deleteMp3('${m.id}')">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+function playMp3(id){const m=loadMp3s().find(m=>m.id===id);if(!m)return;const a=new Audio(m.dataUrl);a.volume=settings.volCheer;a.play().catch(()=>showToast('Ошибка воспроизведения'));}
+function deleteMp3(id){saveMp3s(loadMp3s().filter(m=>m.id!==id));renderMp3List();updateFightSounds();showToast('Файл удалён');}
+
+// Drag & drop
+const uploadZone=document.getElementById('upload-zone');
+uploadZone.addEventListener('dragover',e=>{e.preventDefault();uploadZone.classList.add('drag-over');});
+uploadZone.addEventListener('dragleave',()=>uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop',e=>{e.preventDefault();uploadZone.classList.remove('drag-over');handleMp3Upload(e.dataTransfer.files);});
+
+// ══════════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════════
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+let toastTimeout;
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>t.classList.remove('show'),2800);}
+
+// ══════════════════════════════════════════════
+//  SERVICE WORKER
+// ══════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+loadProfile();
+updateProfileDisplays();
+renderTimer();
+updateFightSounds();
+</script>
+</body>
+</html>
