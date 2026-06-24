@@ -744,38 +744,60 @@ schedulePeriodic();
 }
 
 function timerStartStop() {
-  const btn=document.getElementById('btn-start-stop');
+  const btn = document.getElementById('btn-start-stop');
+
   if (!timerState.running) {
-    timerState.running=true; timerState.paused=false;
-    timerState.currentRound=1; timerState.warnFired=false;
-    if (profile.prepTime>0) {
-      timerState.isPrep=true; timerState.isRest=false; timerState.remaining=profile.prepTime;
+    timerState.running = true;
+    timerState.paused = false;
+    timerState.currentRound = 1;
+    timerState.warnFired = false;
+
+    if (profile.prepTime > 0) {
+      timerState.isPrep = true;
+      timerState.isRest = false;
+      timerState.remaining = profile.prepTime;
     } else {
-      timerState.isPrep=false; timerState.isRest=false; timerState.remaining=profile.roundTime;
-     if (settings.gong) synthSound('gong');
+      timerState.isPrep = false;
+      timerState.isRest = false;
+      timerState.remaining = profile.roundTime;
 
-setTimeout(() => {
-  playRandomSupportSound();
-}, 1200);
+      if (settings.gong) synthSound('gong');
 
-scheduleAutoSound();
-schedulePeriodic();
-    timerState.interval=setInterval(timerTick,1000);
-    btn.textContent='⏸ ПАУЗА'; btn.className='btn-main btn-pause';
-    document.getElementById('header-badge').textContent='⬤ БОЙ';
-    document.getElementById('header-badge').style.background='var(--accent)';
-    requestWakeLock(); renderTimer();
+      setTimeout(() => {
+        playRandomSupportSound();
+      }, 1200);
+
+      scheduleAutoSound();
+      schedulePeriodic();
+    }
+
+    timerState.interval = setInterval(timerTick, 1000);
+    btn.textContent = '⏸ ПАУЗА';
+    btn.className = 'btn-main btn-pause';
+
+    document.getElementById('header-badge').textContent = '⬤ БОЙ';
+    document.getElementById('header-badge').style.background = 'var(--accent)';
+
+    requestWakeLock();
+    renderTimer();
+
   } else if (!timerState.paused) {
-    timerState.paused=true; btn.textContent='▶ ПРОДОЛЖИТЬ'; btn.className='btn-main btn-start';
-    document.getElementById('header-badge').textContent='⏸ ПАУЗА';
-    document.getElementById('header-badge').style.background='var(--gold)';
+    timerState.paused = true;
+    btn.textContent = '▶ ПРОДОЛЖИТЬ';
+    btn.className = 'btn-main btn-start';
+
+    document.getElementById('header-badge').textContent = '⏸ ПАУЗА';
+    document.getElementById('header-badge').style.background = 'var(--gold)';
+
   } else {
-    timerState.paused=false; btn.textContent='⏸ ПАУЗА'; btn.className='btn-main btn-pause';
-    document.getElementById('header-badge').textContent='⬤ БОЙ';
-    document.getElementById('header-badge').style.background='var(--accent)';
+    timerState.paused = false;
+    btn.textContent = '⏸ ПАУЗА';
+    btn.className = 'btn-main btn-pause';
+
+    document.getElementById('header-badge').textContent = '⬤ БОЙ';
+    document.getElementById('header-badge').style.background = 'var(--accent)';
   }
 }
-
 function timerReset() {
   clearInterval(timerState.interval); timerState.interval=null;
   clearAutoSound(); clearPeriodic();
@@ -1180,7 +1202,14 @@ function playMp3(id) {
   a.volume = settings.volCheer;
   a.play().catch(()=>{});
 }
-function deleteMp3(id){saveMp3s(loadMp3s().filter(m=>m.id!==id));renderMp3List();updateFightSounds();showToast('Файл удалён');}
+function deleteMp3(id){
+  activeMp3Sounds.delete(id);
+  saveActiveMp3Sounds();
+  saveMp3s(loadMp3s().filter(m=>m.id!==id));
+  renderMp3List();
+  updateFightSounds();
+  showToast('Файл удалён');
+}
 
 // Drag & drop
 const uploadZone=document.getElementById('upload-zone');
